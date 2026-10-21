@@ -1,0 +1,99 @@
+import { useState } from 'react';
+import { CalendarPlus, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEditors } from '../components/editors';
+import { Empty } from '../components/ui';
+import { useStore } from '../lib/store';
+import { dayMonth, iso, todayIso } from '../lib/utils';
+
+type Item = { key: string; date: string; name: string; color?: string; kind: 'event' | 'task'; label: string; done?: boolean; open: () => void };
+
+export function Calendar() {
+  const { db, subject } = useStore();
+  const { editEvent, editTask } = useEditors();
+  const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [showTasks, setShowTasks] = useState(true);
+  const today = todayIso();
+  const y = month.getFullYear();
+  const m = month.getMonth();
+  const start = (new Date(y, m, 1).getDay() + 6) % 7;
+  const weeks = Math.ceil((start + new Date(y, m + 1, 0).getDate()) / 7);
+
+  const items: Item[] = [
+    ...db.events.map(e => ({ key: e.id, date: e.date, name: e.name, color: subject(e.subject_id)?.color, kind: 'event' as const, label: e.kind, open: () => editEvent(e) })),
+    ...(showTasks ? db.tasks.filter(t => t.due_date).map(t => ({
+      key: t.id, date: t.due_date!, name: t.name, color: subject(t.subject_id)?.color, kind: 'task' as const, label: 'Échéance d’action', done: t.status === 'Terminé', open: () => editTask(t),
+    })) : []),
+  ];
+  const byDay = new Map<string, Item[]>();
+  for (const it of items) byDay.set(it.date, [...(byDay.get(it.date) ?? []), it]);
+
+  const cells = Array.from({ length: weeks * 7 }, (_, i) => new Date(y, m, i - start + 1));
+  const monthPrefix = iso(month).slice(0, 7);
+  const monthItems = items.filter(it => it.date.startsWith(monthPrefix)).sort((a, b) => a.date.localeCompare(b.date));
+  const shift = (n: number) => setMonth(new Date(y, m + n, 1));
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h2 className="month-title">{month.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h2>
+          <p className="hint">Clique un jour pour ajouter un événement · dates théoriques signalées dans leur intitulé</p>
+        </div>
+        <div className="cal-nav">
+          <label className="toggle"><input type="checkbox" checked={showTasks} onChange={e => setShowTasks(e.target.checked)} /> Échéances des actions</label>
+          <button className="icon-btn bordered" onClick={() => shift(-1)} aria-label="Mois précédent"><ChevronLeft size={18} /></button>
+          <button className="btn" onClick={() => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }}>Aujourd'hui</button>
+          <button className="icon-btn bordered" onClick={() => shift(1)} aria-label="Mois suivant"><ChevronRight size={18} /></button>
+          <button className="btn primary" onClick={() => editEvent(null, { date: today })}><CalendarPlus size={16} /> Événement</button>
+        </div>
+      </div>
+
+      <div className="calendar">
+        {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="dow">{d}</div>)}
+        {cells.map(d => {
+          const key = iso(d);
+          const list = byDay.get(key) ?? [];
+          return (
+            <div
+              key={key}
+              className={`day ${d.getMonth() !== m ? 'other' : ''} ${key === today ? 'today' : ''} ${d.getDay() % 6 === 0 ? 'weekend' : ''}`}
+              onClick={() => editEvent(null, { date: key })}
+            >
+              <span className="daynum">{d.getDate()}</span>
+              {list.map(it => (
+                <button
+                  key={it.key}
+                  className={`evt ${it.kind} ${it.done ? 'is-done' : ''}`}
+                  style={{ ['--c' as string]: it.color }}
+                  title={it.name}
+                  onClick={e => { e.stopPropagation(); it.open(); }}
+                >
+                  {it.kind === 'task' && <Check size={11} strokeWidth={3} />}
+                  <span>{it.name}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      <section className="panel agenda">
+        <h3>Agenda du mois</h3>
+        {monthItems.length ? monthItems.map(it => {
+          const d = dayMonth(it.date);
+          return (
+            <button key={it.key} className="date-row" style={{ ['--c' as string]: it.color }} onClick={it.open}>
+              <span className="datebox"><b>{d.day}</b><small>{d.weekday}</small></span>
+              <span className="subject-row-main">
+                <span className="row-title">{it.name}</span>
+                <span className="meta">{it.label}</span>
+              </span>
+            </button>
+          );
+        }) : <Empty>Rien ce mois-ci.</Empty>}
+      </section>
+
+      <p className="hint foot-hint">Le 17 novembre (Moon) et le 1er décembre (Edison) sont des dates indicatives, non des dates contractuellement vérifiées. Les réunions mensuelles doivent être confrontées aux semaines de cours.</p>
+    </div>
+  );
+}

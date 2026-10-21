@@ -1,0 +1,340 @@
+// Données initiales générées depuis cockpit_ia_sapaudia_couleurs.html
+import type { DB } from './types';
+
+export const SEED: DB = {
+  "subjects": [
+    {
+      "id": "strategy",
+      "name": "Positionnement Sapaudia — opérateur IA",
+      "category": "Sujet stratégique",
+      "status": "À cadrer",
+      "summary": "Ambition de proposer des solutions IA aux entreprises ; modèle cité : Limova. Périmètre au-delà des agents IA possible.",
+      "confirmed": "Le positionnement comme opérateur IA a été évoqué. Limova est un modèle de référence mentionné.",
+      "hypothesis": "L’offre pourrait combiner agents IA, conseil, intégration et accompagnement.",
+      "questions": "Définir précisément le périmètre de l’offre et le modèle économique.",
+      "people": "Président ; Fred",
+      "next_step": "Clarifier la vision et analyser les modèles concurrents.",
+      "due_date": null,
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#8b5cf6",
+      "notes": "",
+      "position": 0
+    },
+    {
+      "id": "moon",
+      "name": "Moon by DFM — agent data room",
+      "category": "Projet IA",
+      "status": "En cours",
+      "summary": "Agent d’analyse de data room, avec complément envisagé pour examiner le site de l’entreprise et ses concurrents.",
+      "confirmed": "Démarrage indiqué le 6 octobre 2026 ; durée annoncée de six semaines. Référent : Arthur Bayon, actuellement absent ; relais : Dominique Bayon. Trois pièces évoquées : proposition commerciale, document de maintenance (intitulé incertain), bon de commande. Complément d’analyse externe demandé.",
+      "hypothesis": "Livraison théorique vers le 17 novembre, sous réserve du point de départ contractuel et du complément.",
+      "questions": "Date contractuelle de livraison ; portée et coût du complément ; contenu exact des documents et de la note process ; utilisateurs ; validation.",
+      "people": "Arthur Bayon ; Dominique Bayon ; Fred",
+      "next_step": "Récupérer les documents et la note de processus.",
+      "due_date": "2026-11-17",
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#2563eb",
+      "notes": "",
+      "position": 1
+    },
+    {
+      "id": "training",
+      "name": "Formation IA et visite en petit comité",
+      "category": "Formation / rendez-vous",
+      "status": "À faire",
+      "summary": "Formation interne le 10 novembre (intervenant peut-être Moon), avec cas d’usage ; visite le 2 décembre avec un groupe plus restreint.",
+      "confirmed": "Dates citées : 10 novembre et 2 décembre 2026.",
+      "hypothesis": "La visite pourrait approfondir la formation, sans certitude.",
+      "questions": "Intervenant, entreprise visitée, programme, participants et objectifs.",
+      "people": "À clarifier",
+      "next_step": "Confirmer organisation et programmes.",
+      "due_date": "2026-11-10",
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#0d9488",
+      "notes": "",
+      "position": 2
+    },
+    {
+      "id": "edison",
+      "name": "Benchmark Edison IA",
+      "category": "Benchmark",
+      "status": "À faire",
+      "summary": "Analyser Edison IA : offres, clients, prix, fonctionnalités, démarche commerciale et pertinence pour Sapaudia.",
+      "confirmed": "Analyse demandée avec une restitution au plus tard début décembre 2026.",
+      "hypothesis": "L’étude pourra éclairer le futur positionnement commercial de Sapaudia.",
+      "questions": "Périmètre exact, format attendu et disponibilité d’exemples précédents.",
+      "people": "Pierrick Nijki (orthographe à vérifier) ; Fred",
+      "next_step": "Demander un exemple d’analyse à Pierrick puis lancer le benchmark.",
+      "due_date": "2026-12-01",
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#ea580c",
+      "notes": "",
+      "position": 3
+    },
+    {
+      "id": "lumina",
+      "name": "Analyse Lumina.ai",
+      "category": "Benchmark potentiel",
+      "status": "À cadrer",
+      "summary": "Entreprise citée comme modèle particulièrement inspirant par le Président.",
+      "confirmed": "Lumina.ai a été évoquée favorablement par le Président.",
+      "hypothesis": "Un benchmark complémentaire pourrait être pertinent.",
+      "questions": "Vérifier l’identité et le domaine exacts de l’entreprise. Confirmer si un benchmark est demandé.",
+      "people": "Président ; Fred",
+      "next_step": "Valider l’entreprise ciblée et la demande.",
+      "due_date": null,
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#db2777",
+      "notes": "",
+      "position": 4
+    },
+    {
+      "id": "governance",
+      "name": "Pilotage mensuel et comptes rendus IA",
+      "category": "Pilotage",
+      "status": "À faire",
+      "summary": "Réunion d’avancement le premier lundi de chaque mois à 16 h, sauf semaine de cours. Échange avec Fred sur les comptes rendus générés.",
+      "confirmed": "Cadence proposée : premier lundi à 16 h ; échange avec Fred demandé le 22 octobre.",
+      "hypothesis": "Les réunions devront peut-être être décalées durant les semaines de cours.",
+      "questions": "Participants, décalage ou annulation en semaine de cours, qualité attendue des comptes rendus.",
+      "people": "Fred ; participants à confirmer",
+      "next_step": "Voir Fred et confronter les dates au calendrier d’alternance.",
+      "due_date": "2026-10-22",
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#64748b",
+      "notes": "",
+      "position": 5
+    },
+    {
+      "id": "guillaume",
+      "name": "Rencontre Guillaume — Koredge",
+      "category": "Prise de contact",
+      "status": "À faire",
+      "summary": "Prise de contact envisagée avec Guillaume, qui s’occupe de l’informatique chez Koredge.",
+      "confirmed": "Guillaume est présenté comme interlocuteur informatique Koredge.",
+      "hypothesis": "Il pourrait contribuer à la faisabilité technique des projets.",
+      "questions": "Fonction exacte, coordonnées, date du rendez-vous.",
+      "people": "Guillaume",
+      "next_step": "Organiser une première rencontre.",
+      "due_date": null,
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#0891b2",
+      "notes": "",
+      "position": 6
+    },
+    {
+      "id": "king",
+      "name": "Client « King Vert » — suivi production",
+      "category": "Action opérationnelle",
+      "status": "À cadrer",
+      "summary": "Participation possible au suivi de production d’un client dont le nom entendu serait King Vert.",
+      "confirmed": "Sujet de suivi client mentionné pendant la réunion.",
+      "hypothesis": "Ton rôle pourrait relever du suivi de production.",
+      "questions": "Nom exact du client ; périmètre ; responsables ; prochaines étapes.",
+      "people": "À clarifier",
+      "next_step": "Vérifier le client et la mission.",
+      "due_date": null,
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#65a30d",
+      "notes": "",
+      "position": 7
+    },
+    {
+      "id": "besancon",
+      "name": "Commerciaux — Besançon",
+      "category": "Sujet existant",
+      "status": "En attente",
+      "summary": "Dossier déjà connu, à reprendre plus tard sans y revenir pour le moment.",
+      "confirmed": "Consigne de ne pas repasser sur ce sujet maintenant.",
+      "hypothesis": "",
+      "questions": "Contexte et date de reprise non fournis.",
+      "people": "À clarifier",
+      "next_step": "Attendre sa remise à l’ordre du jour.",
+      "due_date": null,
+      "origin": "Réunion Direction — 21/10/2026",
+      "color": "#a16207",
+      "notes": "",
+      "position": 8
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "name": "Voir Fred sur les comptes rendus IA générés",
+      "subject_id": "governance",
+      "status": "À faire",
+      "priority": "P1",
+      "owner": "Fred",
+      "due_date": "2026-10-22",
+      "position": 0
+    },
+    {
+      "id": "t2",
+      "name": "Récupérer propal, maintenance et bon de commande Moon",
+      "subject_id": "moon",
+      "status": "À faire",
+      "priority": "P1",
+      "owner": "Fred / Dominique (à confirmer)",
+      "due_date": null,
+      "position": 1
+    },
+    {
+      "id": "t3",
+      "name": "Demander la note du process d’analyse Moon",
+      "subject_id": "moon",
+      "status": "À faire",
+      "priority": "P1",
+      "owner": "Arthur / Dominique",
+      "due_date": null,
+      "position": 2
+    },
+    {
+      "id": "t4",
+      "name": "Contacter Pierrick pour un exemple d’analyse",
+      "subject_id": "edison",
+      "status": "À faire",
+      "priority": "P1",
+      "owner": "Pierrick Nijki",
+      "due_date": null,
+      "position": 3
+    },
+    {
+      "id": "t5",
+      "name": "Réaliser le benchmark Edison IA",
+      "subject_id": "edison",
+      "status": "À faire",
+      "priority": "P1",
+      "owner": "À clarifier",
+      "due_date": "2026-12-01",
+      "position": 4
+    },
+    {
+      "id": "t6",
+      "name": "Confirmer formation du 10 novembre et visite du 2 décembre",
+      "subject_id": "training",
+      "status": "À faire",
+      "priority": "P2",
+      "owner": "Fred / organisateur",
+      "due_date": "2026-11-10",
+      "position": 5
+    },
+    {
+      "id": "t7",
+      "name": "Organiser les points mensuels selon semaines de cours",
+      "subject_id": "governance",
+      "status": "À faire",
+      "priority": "P2",
+      "owner": "À clarifier",
+      "due_date": null,
+      "position": 6
+    },
+    {
+      "id": "t8",
+      "name": "Vérifier Lumina et arbitrer le benchmark",
+      "subject_id": "lumina",
+      "status": "À faire",
+      "priority": "P2",
+      "owner": "Président / Fred",
+      "due_date": null,
+      "position": 7
+    },
+    {
+      "id": "t9",
+      "name": "Organiser une rencontre avec Guillaume",
+      "subject_id": "guillaume",
+      "status": "À faire",
+      "priority": "P2",
+      "owner": "Guillaume",
+      "due_date": null,
+      "position": 8
+    },
+    {
+      "id": "t10",
+      "name": "Clarifier le suivi client King Vert",
+      "subject_id": "king",
+      "status": "À faire",
+      "priority": "P2",
+      "owner": "Fred / responsable client",
+      "due_date": null,
+      "position": 9
+    },
+    {
+      "id": "t11",
+      "name": "Clarifier la note « reco GPO »",
+      "subject_id": "moon",
+      "status": "À faire",
+      "priority": "P3",
+      "owner": "Fred / Dominique",
+      "due_date": null,
+      "position": 10
+    },
+    {
+      "id": "t12",
+      "name": "Conserver Besançon pour reprise ultérieure",
+      "subject_id": "besancon",
+      "status": "En attente",
+      "priority": "P3",
+      "owner": "À clarifier",
+      "due_date": null,
+      "position": 11
+    }
+  ],
+  "events": [
+    {
+      "id": "e1",
+      "date": "2026-10-22",
+      "name": "Échange Fred — comptes rendus IA",
+      "subject_id": "governance",
+      "kind": "Action"
+    },
+    {
+      "id": "e2",
+      "date": "2026-11-02",
+      "name": "Avancement IA — sous réserve cours",
+      "subject_id": "governance",
+      "kind": "Récurrence théorique"
+    },
+    {
+      "id": "e3",
+      "date": "2026-11-10",
+      "name": "Formation IA en entreprise",
+      "subject_id": "training",
+      "kind": "Événement"
+    },
+    {
+      "id": "e4",
+      "date": "2026-11-17",
+      "name": "Moon — livraison théorique",
+      "subject_id": "moon",
+      "kind": "Hypothèse"
+    },
+    {
+      "id": "e5",
+      "date": "2026-12-01",
+      "name": "Benchmark Edison — échéance indicative",
+      "subject_id": "edison",
+      "kind": "Échéance"
+    },
+    {
+      "id": "e6",
+      "date": "2026-12-02",
+      "name": "Visite en petit comité",
+      "subject_id": "training",
+      "kind": "Événement"
+    },
+    {
+      "id": "e7",
+      "date": "2026-12-07",
+      "name": "Avancement IA — sous réserve cours",
+      "subject_id": "governance",
+      "kind": "Récurrence théorique"
+    },
+    {
+      "id": "e8",
+      "date": "2027-01-04",
+      "name": "Avancement IA — sous réserve cours",
+      "subject_id": "governance",
+      "kind": "Récurrence théorique"
+    }
+  ]
+};
