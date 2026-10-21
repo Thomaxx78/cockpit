@@ -1,4 +1,4 @@
--- Cockpit IA Sapaudia — schéma Supabase
+-- Cockpit — schéma Supabase
 -- À exécuter une seule fois dans Supabase > SQL Editor, puis exécuter seed.sql.
 
 create table if not exists public.subjects (
@@ -66,20 +66,30 @@ drop trigger if exists events_touch on public.events;
 create trigger events_touch before update on public.events
   for each row execute function public.touch_updated_at();
 
--- Sécurité : seuls les utilisateurs connectés lisent / écrivent.
+-- Sécurité : seul le compte du cockpit (VITE_AUTH_EMAIL) lit / écrit.
+-- Même si quelqu'un créait un autre compte, il ne verrait rien.
+-- ⚠️ Si tu changes VITE_AUTH_EMAIL, change aussi l'email ci-dessous.
+create or replace function public.is_owner() returns boolean
+language sql stable as $$
+  select coalesce(auth.jwt() ->> 'email', '') = 'cockpit@example.com'
+$$;
+
 alter table public.subjects enable row level security;
 alter table public.tasks    enable row level security;
 alter table public.events   enable row level security;
 
 drop policy if exists "auth full access" on public.subjects;
-create policy "auth full access" on public.subjects
-  for all to authenticated using (true) with check (true);
+drop policy if exists "owner only" on public.subjects;
+create policy "owner only" on public.subjects
+  for all to authenticated using (public.is_owner()) with check (public.is_owner());
 drop policy if exists "auth full access" on public.tasks;
-create policy "auth full access" on public.tasks
-  for all to authenticated using (true) with check (true);
+drop policy if exists "owner only" on public.tasks;
+create policy "owner only" on public.tasks
+  for all to authenticated using (public.is_owner()) with check (public.is_owner());
 drop policy if exists "auth full access" on public.events;
-create policy "auth full access" on public.events
-  for all to authenticated using (true) with check (true);
+drop policy if exists "owner only" on public.events;
+create policy "owner only" on public.events
+  for all to authenticated using (public.is_owner()) with check (public.is_owner());
 
 -- Temps réel (synchronisation entre onglets / appareils)
 do $$

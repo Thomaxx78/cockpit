@@ -18,10 +18,15 @@ Sans `.env`, l'application fonctionne en **mode local**. Les données restent al
 
 1. **SQL Editor** : exécuter `supabase/schema.sql` (tables, sécurité RLS, temps réel).
 2. **SQL Editor** : exécuter `supabase/seed.sql`. Il contient toutes les données de la réunion du 21/10/2026 : 9 sujets, 12 actions et 8 événements. Le script est idempotent et n'écrase rien.
-3. **Authentication → Users → Add user** : créer ton compte (email + mot de passe).
+3. **Authentication → Users → Add user → Create new user** : email = la valeur de `VITE_AUTH_EMAIL`, mot de passe = ton code à 6 chiffres. Cocher « Auto Confirm User ».
 4. **Authentication → Sign In / Providers** : désactiver « Allow new users to sign up », pour que personne d'autre ne puisse créer de compte.
 
-Seuls les utilisateurs connectés peuvent lire ou écrire les données (RLS).
+### Sécurité du code PIN
+
+- Le code n'est **jamais** dans le code source ni dans le `.env`. Tout ce qui commence par `VITE_` est visible dans le navigateur. Le code est le mot de passe du compte Supabase, stocké haché côté serveur.
+- La vérification se fait chez Supabase, qui limite le nombre de tentatives par adresse IP (**Authentication → Rate Limits**).
+- Seuls les utilisateurs connectés peuvent lire ou écrire les données (RLS).
+- Pour changer le code : **Authentication → Users → ⋯ → Reset password**, ou modifier le mot de passe de l'utilisateur.
 
 ## Reprendre les données de l'ancien cockpit HTML
 
