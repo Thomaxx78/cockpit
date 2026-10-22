@@ -559,3 +559,24 @@ textarea { resize: vertical; }
 .menu-text small { color: var(--muted); font-size: 12px; }
 .time-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .evt-time { font-weight: 700; flex-shrink: 0; }
+
+/* ---------- Barres de défilement ---------- */
+:root { --scroll-thumb: #c9d0dc; --scroll-thumb-hover: #9ea8ba; }
+@media (prefers-color-scheme: dark) { :root { --scroll-thumb: #2c3854; --scroll-thumb-hover: #3f4d6e; } }
+.sidebar { --scroll-thumb: #26314d; --scroll-thumb-hover: #3a4768; }
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb); border-radius: 10px;
+  border: 3px solid transparent; background-clip: padding-box; /* pastille fine avec marge */
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-thumb-hover); }
+::-webkit-scrollbar-thumb:active { background-color: var(--brand); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Firefox (Chrome ignore les ::-webkit-scrollbar dès que scrollbar-color est défini) */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+}
