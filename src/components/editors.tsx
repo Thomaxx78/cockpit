@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Trash2 } from 'lucide-react';
+import { features } from '../lib/backend';
 import { newId, useStore } from '../lib/store';
 import { EVENT_KINDS, PALETTE, PRIORITIES, SUBJECT_STATUSES, TASK_STATUSES, type CalEvent, type Subject, type Task } from '../lib/types';
 import { go } from '../lib/utils';
@@ -36,7 +37,7 @@ export function EditorsProvider({ children }: { children: ReactNode }) {
     editEvent: (e, d = {}) => setOpen({
       kind: 'event',
       isNew: !e,
-      row: e ?? { id: newId('e'), date: '', name: '', subject_id: null, kind: 'Événement', ...d },
+      row: e ?? { id: newId('e'), date: '', name: '', subject_id: null, kind: 'Événement', start_time: null, end_time: null, ...d },
     }),
     newSubject: () => setOpen({
       kind: 'subject',
@@ -110,6 +111,7 @@ function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: bo
   const set = (p: Partial<CalEvent>) => setE(x => ({ ...x, ...p }));
   const submit = () => {
     if (!e.name.trim() || !e.date) return toast('Nom et date obligatoires', 'error');
+    if (e.start_time && e.end_time && e.end_time < e.start_time) return toast('La fin doit être après le début', 'error');
     saveEvent({ ...e, name: e.name.trim() });
     toast(isNew ? 'Événement ajouté' : 'Événement enregistré');
     onClose();
@@ -130,6 +132,12 @@ function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: bo
       <form className="form" onSubmit={ev => { ev.preventDefault(); submit(); }}>
         <label className="full">Intitulé<input autoFocus value={e.name} onChange={ev => set({ name: ev.target.value })} /></label>
         <label>Date<input type="date" value={e.date} onChange={ev => set({ date: ev.target.value })} /></label>
+        {features.eventTimes ? (
+          <div className="time-pair">
+            <label>Début<input type="time" value={e.start_time ?? ''} onChange={ev => set({ start_time: ev.target.value || null })} /></label>
+            <label>Fin<input type="time" value={e.end_time ?? ''} onChange={ev => set({ end_time: ev.target.value || null })} /></label>
+          </div>
+        ) : <p className="hint full">Pour ajouter des heures, exécute la dernière version de <code>supabase/schema.sql</code>.</p>}
         <label>Type<input list="event-kinds" value={e.kind} onChange={ev => set({ kind: ev.target.value })} />
           <datalist id="event-kinds">{EVENT_KINDS.map(k => <option key={k} value={k} />)}</datalist>
         </label>

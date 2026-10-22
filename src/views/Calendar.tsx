@@ -3,9 +3,9 @@ import { CalendarPlus, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { Empty } from '../components/ui';
 import { useStore } from '../lib/store';
-import { dayMonth, iso, todayIso } from '../lib/utils';
+import { dayMonth, iso, timeRange, todayIso } from '../lib/utils';
 
-type Item = { key: string; date: string; name: string; color?: string; kind: 'event' | 'task'; label: string; done?: boolean; open: () => void };
+type Item = { key: string; date: string; time: string; sort: string; name: string; color?: string; kind: 'event' | 'task'; label: string; done?: boolean; open: () => void };
 
 export function Calendar() {
   const { db, subject } = useStore();
@@ -19,17 +19,17 @@ export function Calendar() {
   const weeks = Math.ceil((start + new Date(y, m + 1, 0).getDate()) / 7);
 
   const items: Item[] = [
-    ...db.events.map(e => ({ key: e.id, date: e.date, name: e.name, color: subject(e.subject_id)?.color, kind: 'event' as const, label: e.kind, open: () => editEvent(e) })),
+    ...db.events.map(e => ({ key: e.id, date: e.date, time: timeRange(e.start_time, e.end_time), sort: e.start_time ?? '', name: e.name, color: subject(e.subject_id)?.color, kind: 'event' as const, label: e.kind, open: () => editEvent(e) })),
     ...(showTasks ? db.tasks.filter(t => t.due_date).map(t => ({
-      key: t.id, date: t.due_date!, name: t.name, color: subject(t.subject_id)?.color, kind: 'task' as const, label: 'Échéance d’action', done: t.status === 'Terminé', open: () => editTask(t),
+      key: t.id, date: t.due_date!, time: '', sort: '99', name: t.name, color: subject(t.subject_id)?.color, kind: 'task' as const, label: 'Échéance d’action', done: t.status === 'Terminé', open: () => editTask(t),
     })) : []),
   ];
   const byDay = new Map<string, Item[]>();
-  for (const it of items) byDay.set(it.date, [...(byDay.get(it.date) ?? []), it]);
+  for (const it of [...items].sort((a, b) => a.sort.localeCompare(b.sort))) byDay.set(it.date, [...(byDay.get(it.date) ?? []), it]);
 
   const cells = Array.from({ length: weeks * 7 }, (_, i) => new Date(y, m, i - start + 1));
   const monthPrefix = iso(month).slice(0, 7);
-  const monthItems = items.filter(it => it.date.startsWith(monthPrefix)).sort((a, b) => a.date.localeCompare(b.date));
+  const monthItems = items.filter(it => it.date.startsWith(monthPrefix)).sort((a, b) => (a.date + a.sort).localeCompare(b.date + b.sort));
   const shift = (n: number) => setMonth(new Date(y, m + n, 1));
 
   return (
@@ -65,10 +65,11 @@ export function Calendar() {
                   key={it.key}
                   className={`evt ${it.kind} ${it.done ? 'is-done' : ''}`}
                   style={{ ['--c' as string]: it.color }}
-                  title={it.name}
+                  title={it.time ? `${it.time} · ${it.name}` : it.name}
                   onClick={e => { e.stopPropagation(); it.open(); }}
                 >
                   {it.kind === 'task' && <Check size={11} strokeWidth={3} />}
+                  {it.time && <b className="evt-time">{it.time.split('–')[0]}</b>}
                   <span>{it.name}</span>
                 </button>
               ))}
@@ -86,7 +87,7 @@ export function Calendar() {
               <span className="datebox"><b>{d.day}</b><small>{d.weekday}</small></span>
               <span className="subject-row-main">
                 <span className="row-title">{it.name}</span>
-                <span className="meta">{it.label}</span>
+                <span className="meta">{it.time && `${it.time} · `}{it.label}</span>
               </span>
             </button>
           );

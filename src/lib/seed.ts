@@ -285,56 +285,72 @@ export const SEED: DB = {
       "date": "2026-10-22",
       "name": "Échange Fred — comptes rendus IA",
       "subject_id": "governance",
-      "kind": "Action"
+      "kind": "Action",
+      "start_time": null,
+      "end_time": null
     },
     {
       "id": "e2",
       "date": "2026-11-02",
       "name": "Avancement IA — sous réserve cours",
       "subject_id": "governance",
-      "kind": "Récurrence théorique"
+      "kind": "Récurrence théorique",
+      "start_time": null,
+      "end_time": null
     },
     {
       "id": "e3",
       "date": "2026-11-10",
       "name": "Formation IA en entreprise",
       "subject_id": "training",
-      "kind": "Événement"
+      "kind": "Événement",
+      "start_time": null,
+      "end_time": null
     },
     {
       "id": "e4",
       "date": "2026-11-17",
       "name": "Moon — livraison théorique",
       "subject_id": "moon",
-      "kind": "Hypothèse"
+      "kind": "Hypothèse",
+      "start_time": null,
+      "end_time": null
     },
     {
       "id": "e5",
       "date": "2026-12-01",
       "name": "Benchmark Edison — échéance indicative",
       "subject_id": "edison",
-      "kind": "Échéance"
+      "kind": "Échéance",
+      "start_time": null,
+      "end_time": null
     },
     {
       "id": "e6",
       "date": "2026-12-02",
       "name": "Visite en petit comité",
       "subject_id": "training",
-      "kind": "Événement"
+      "kind": "Événement",
+      "start_time": null,
+      "end_time": null
     },
     {
       "id": "e7",
       "date": "2026-12-07",
       "name": "Avancement IA — sous réserve cours",
       "subject_id": "governance",
-      "kind": "Récurrence théorique"
+      "kind": "Récurrence théorique",
+      "start_time": null,
+      "end_time": null
     },
     {
       "id": "e8",
       "date": "2027-01-04",
       "name": "Avancement IA — sous réserve cours",
       "subject_id": "governance",
-      "kind": "Récurrence théorique"
+      "kind": "Récurrence théorique",
+      "start_time": null,
+      "end_time": null
     }
   ]
 };

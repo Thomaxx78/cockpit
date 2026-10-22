@@ -60,3 +60,8 @@ export function useRoute() {
 }
 
 export const go = (path: string) => { location.hash = '/' + path; };
+
+/** "09:30" → "9h30", "15:00" → "15h" */
+export const fmtTime = (t: string) => t.replace(/^0(?=\d)/, '').replace(/:00$/, 'h').replace(':', 'h');
+export const timeRange = (start?: string | null, end?: string | null) =>
+  start ? (end ? `${fmtTime(start)}–${fmtTime(end)}` : fmtTime(start)) : '';

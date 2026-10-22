@@ -3,7 +3,7 @@ import { useEditors } from '../components/editors';
 import { TaskRow } from '../components/TaskRow';
 import { Dot, Empty, Pill } from '../components/ui';
 import { useStore } from '../lib/store';
-import { dayMonth, daysFrom, fmtShort, go, relative, todayIso } from '../lib/utils';
+import { dayMonth, daysFrom, fmtShort, go, relative, timeRange, todayIso } from '../lib/utils';
 
 const prioRank = (p: string) => ({ P1: 0, P2: 1, P3: 2 } as Record<string, number>)[p] ?? 3;
 
@@ -17,7 +17,7 @@ export function Dashboard() {
     prioRank(a.priority) - prioRank(b.priority) || (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999') || a.position - b.position,
   ).slice(0, 7);
 
-  const future = db.events.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const future = db.events.filter(e => e.date >= today).sort((a, b) => (a.date + (a.start_time ?? '')).localeCompare(b.date + (b.start_time ?? '')));
   // Les jours de cours sont résumés à part pour ne pas noyer les échéances.
   const upcoming = future.filter(e => e.kind !== 'Cours').slice(0, 7);
   const nextCourses = (() => {
@@ -127,7 +127,7 @@ export function Dashboard() {
                   <span className="datebox"><b>{d.day}</b><small>{d.month}</small></span>
                   <span className="subject-row-main">
                     <span className="row-title">{e.name}</span>
-                    <span className="meta">{e.kind} · {relative(e.date)}</span>
+                    <span className="meta">{e.start_time && `${timeRange(e.start_time, e.end_time)} · `}{e.kind} · {relative(e.date)}</span>
                   </span>
                 </button>
               );

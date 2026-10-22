@@ -5,7 +5,7 @@ import { TaskRow } from '../components/TaskRow';
 import { AutoTextarea, Empty } from '../components/ui';
 import { newId, useStore } from '../lib/store';
 import { SUBJECT_STATUSES, type Subject } from '../lib/types';
-import { dayMonth, go, relative, statusClass } from '../lib/utils';
+import { dayMonth, go, relative, statusClass, timeRange } from '../lib/utils';
 
 /** Champ éditable sur place, sauvegardé automatiquement (pause de frappe ou sortie du champ). */
 function Inline({ value, onSave, placeholder, className, multiline = true }: {
@@ -48,7 +48,7 @@ export function SubjectDetail({ id }: { id: string }) {
 
   const set = (p: Partial<Subject>) => latest.current && saveSubject({ ...latest.current, ...p });
   const tasks = db.tasks.filter(t => t.subject_id === id).sort((a, b) => Number(a.status === 'Terminé') - Number(b.status === 'Terminé') || a.position - b.position);
-  const events = db.events.filter(e => e.subject_id === id).sort((a, b) => a.date.localeCompare(b.date));
+  const events = db.events.filter(e => e.subject_id === id).sort((a, b) => (a.date + (a.start_time ?? '')).localeCompare(b.date + (b.start_time ?? '')));
   const done = tasks.filter(t => t.status === 'Terminé').length;
 
   const addQuick = () => {
@@ -135,7 +135,7 @@ export function SubjectDetail({ id }: { id: string }) {
                   <span className="datebox"><b>{d.day}</b><small>{d.month}</small></span>
                   <span className="subject-row-main">
                     <span className="row-title">{e.name}</span>
-                    <span className="meta">{e.kind} · {relative(e.date)}</span>
+                    <span className="meta">{e.start_time && `${timeRange(e.start_time, e.end_time)} · `}{e.kind} · {relative(e.date)}</span>
                   </span>
                 </button>
               );

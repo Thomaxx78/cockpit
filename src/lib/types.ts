@@ -33,6 +33,8 @@ export type CalEvent = {
   name: string;
   subject_id: string | null;
   kind: string;
+  start_time: string | null;
+  end_time: string | null;
 };
 
 export type DB = { subjects: Subject[]; tasks: Task[]; events: CalEvent[] };

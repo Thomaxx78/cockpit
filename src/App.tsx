@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, FolderOpen, HardDrive, LayoutDashboard, ListChecks, LogOut, Plus, Search, Upload,
+  AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, FolderOpen, HardDrive, LayoutDashboard, ListChecks, LogOut, Search, Upload,
 } from 'lucide-react';
 import { signOut } from './components/Auth';
-import { useEditors } from './components/editors';
+import { NewMenu, useCreate } from './components/NewMenu';
 import { Palette } from './components/Palette';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
@@ -27,20 +27,23 @@ export function App({ email }: { email: string | null }) {
   const { parts, query } = useRoute();
   const store = useStore();
   const { db, ready, loadError, saving, saveError, backendKind, toasts, importDB, reload } = store;
-  const { editTask } = useEditors();
   const [palette, setPalette] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const page = parts[0] ?? '';
+  const currentSubject = page === 'sujets' && parts[1] ? parts[1] : undefined;
+  const create = useCreate(currentSubject);
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const typing = /INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement).tagName);
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(p => !p); }
-      else if (!typing && !document.querySelector('.backdrop') && e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); editTask(null); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(p => !p); return; }
+      if (typing || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.backdrop')) return;
+      const run = ({ n: create.task, e: create.event, s: create.subject } as Record<string, () => void>)[e.key.toLowerCase()];
+      if (run) { e.preventDefault(); run(); }
     };
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
-  }, [editTask]);
+  }, [create]);
 
   const exportJSON = () => download(
     new Blob([JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), ...db }, null, 2)], { type: 'application/json' }),
@@ -120,7 +123,7 @@ export function App({ email }: { email: string | null }) {
             <button className="icon-btn bordered" title="Exporter (JSON)" onClick={exportJSON}><Download size={17} /></button>
             <button className="icon-btn bordered" title="Importer une sauvegarde (ancien ou nouveau cockpit)" onClick={() => fileRef.current?.click()}><Upload size={17} /></button>
             <input ref={fileRef} type="file" accept="application/json" hidden onChange={e => importFile(e.target.files?.[0])} />
-            <button className="btn primary" onClick={() => editTask(null)} title="Raccourci : N"><Plus size={16} /> <span className="hide-sm">Action</span></button>
+            <NewMenu subjectId={currentSubject} />
           </div>
         </header>
 

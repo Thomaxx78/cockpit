@@ -40,9 +40,15 @@ create table if not exists public.events (
   name        text not null,
   subject_id  text references public.subjects(id) on delete set null,
   kind        text not null default 'Événement',
+  start_time  time,
+  end_time    time,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+-- Migration : heures des événements (pour les bases créées avant leur ajout)
+alter table public.events add column if not exists start_time time;
+alter table public.events add column if not exists end_time   time;
 
 create index if not exists tasks_subject_idx  on public.tasks(subject_id);
 create index if not exists events_subject_idx on public.events(subject_id);
