@@ -40,5 +40,42 @@ L'import fusionne les données : il met à jour les éléments existants et ajou
 ## Raccourcis
 
 - `Ctrl K` : recherche globale (sujets, actions, pages)
-- `N` : nouvelle action
+- `N` / `E` / `S` : nouvelle action / nouvel événement / nouveau sujet
 - `Échap` : fermer une fenêtre
+
+## Assistant IA
+
+Le bouton ✦ en bas à droite ouvre un assistant qui agit sur les données en langage naturel : créer, modifier, déplacer ou rechercher des actions, des sujets et des événements. Il utilise Groq (offre gratuite) au travers de la Edge Function `supabase/functions/ai-chat`.
+
+### Fonctionnement et sécurité
+
+- Le navigateur appelle la fonction avec le jeton de session. La fonction vérifie l'utilisateur, puis `public.is_owner()`. Toutes les lectures et écritures passent par ce jeton : la RLS s'applique et aucune clé `service_role` n'est utilisée.
+- Le modèle ne fait que **proposer** des appels d'outils (`list_tasks`, `create_task`, `update_task`, `move_task`, `bulk_update_tasks`, `reorder_tasks_by_priority`, `delete_task`, `list_subjects`, `create_subject`, `update_subject`, `list_events`, `create_event`, `update_event`, `delete_event`). Le serveur valide chaque paramètre (identifiants existants, statuts, priorités, dates, heures).
+- Une modification simple est exécutée directement. Les **suppressions et opérations groupées** produisent une proposition enregistrée dans `ai_proposals` : elle est liée à l'utilisateur, expire au bout de 10 minutes, ne s'exécute qu'une seule fois et ses données sont revérifiées au moment de l'exécution. Le navigateur n'envoie que son identifiant.
+- Les messages de réussite sont rédigés par le serveur à partir du résultat réel en base, pas par le modèle.
+- Les quotas sont maîtrisés :
+  - limite par utilisateur dans `ai_requests` (8 messages par minute et 200 par jour par défaut) ;
+  - 4 appels au modèle au maximum par message ;
+  - historique limité aux 8 derniers messages ;
+  - résultats d'outils tronqués à 25 éléments ;
+  - `max_completion_tokens` plafonné ;
+  - erreurs 429 et délais dépassés gérés.
+
+### Mise en place
+
+```bash
+# 1. SQL Editor : relancer supabase/schema.sql (crée ai_proposals et ai_requests)
+# 2. Clé Groq gratuite : https://console.groq.com/keys
+npx supabase login
+npx supabase secrets set GROQ_API_KEY=gsk_xxx --project-ref <ref-du-projet>
+# 3. Déploiement de la fonction
+npx supabase functions deploy ai-chat --project-ref <ref-du-projet>
+```
+
+`<ref-du-projet>` est le sous-domaine de `VITE_SUPABASE_URL`, c'est-à-dire la partie avant `.supabase.co`. Les réglages optionnels (modèle, fournisseur, limites) sont listés dans `.env.example`.
+
+### Tests
+
+```bash
+npm run test:ai   # 17 scénarios : création, statut, Kanban, recherche, ambiguïté, confirmation, injection, quota…
+```

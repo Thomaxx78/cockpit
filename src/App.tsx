@@ -3,6 +3,7 @@ import {
   AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, FolderOpen, HardDrive, LayoutDashboard, ListChecks, LogOut, Search, Upload,
 } from 'lucide-react';
 import { signOut } from './components/Auth';
+import { AIChat } from './components/AIChat';
 import { NewMenu, useCreate } from './components/NewMenu';
 import { Palette } from './components/Palette';
 import { SEED } from './lib/seed';
@@ -144,6 +145,8 @@ export function App({ email }: { email: string | null }) {
       </nav>
 
       {palette && <Palette onClose={() => setPalette(false)} pages={NAV.map(([p, l]) => [p, l])} />}
+
+      <AIChat />
 
       <div className="toasts">
         {toasts.map(t => <div key={t.id} className={`toast ${t.tone ?? ''}`}>{t.text}</div>)}

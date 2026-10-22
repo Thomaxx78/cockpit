@@ -104,3 +104,42 @@ begin
   begin alter publication supabase_realtime add table public.tasks;    exception when others then null; end;
   begin alter publication supabase_realtime add table public.events;   exception when others then null; end;
 end $$;
+
+-- ============================================================
+-- Assistant IA (Edge Function ai-chat)
+-- ============================================================
+
+-- Propositions en attente de confirmation (opérations groupées, suppressions).
+-- Le navigateur n'envoie que l'id : les opérations restent côté serveur.
+create table if not exists public.ai_proposals (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid(),
+  ops         jsonb not null,
+  preview     jsonb not null,
+  status      text not null default 'pending',  -- pending | executing | done | cancelled
+  result      jsonb,
+  created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null default now() + interval '10 minutes'
+);
+
+-- Journal des requêtes envoyées au modèle (limitation de débit par utilisateur).
+create table if not exists public.ai_requests (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null default auth.uid(),
+  created_at  timestamptz not null default now()
+);
+create index if not exists ai_requests_user_time_idx on public.ai_requests(user_id, created_at);
+
+alter table public.ai_proposals enable row level security;
+alter table public.ai_requests  enable row level security;
+
+drop policy if exists "owner own rows" on public.ai_proposals;
+create policy "owner own rows" on public.ai_proposals
+  for all to authenticated
+  using (public.is_owner() and user_id = auth.uid())
+  with check (public.is_owner() and user_id = auth.uid());
+drop policy if exists "owner own rows" on public.ai_requests;
+create policy "owner own rows" on public.ai_requests
+  for all to authenticated
+  using (public.is_owner() and user_id = auth.uid())
+  with check (public.is_owner() and user_id = auth.uid());
