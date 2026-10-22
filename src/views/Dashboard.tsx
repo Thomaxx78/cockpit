@@ -73,9 +73,6 @@ export function Dashboard() {
         </button>
       </div>
 
-      <div className="notice">
-        Les niveaux P1/P2/P3 sont des recommandations de priorisation, pas des décisions de la Direction. La date Edison au 1er décembre est un repère visuel pour « début décembre », non une échéance au jour près.
-      </div>
 
       <div className="grid-2">
         <div className="col">
