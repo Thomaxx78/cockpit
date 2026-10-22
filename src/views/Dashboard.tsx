@@ -1,9 +1,9 @@
-import { ArrowRight, CircleDot, Compass, FolderKanban, ListChecks, Plus, TriangleAlert } from 'lucide-react';
+import { ArrowRight, CircleDot, Compass, FolderKanban, GraduationCap, ListChecks, Plus, TriangleAlert } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { TaskRow } from '../components/TaskRow';
 import { Dot, Empty, Pill } from '../components/ui';
 import { useStore } from '../lib/store';
-import { dayMonth, go, relative, todayIso } from '../lib/utils';
+import { dayMonth, daysFrom, fmtShort, go, relative, todayIso } from '../lib/utils';
 
 const prioRank = (p: string) => ({ P1: 0, P2: 1, P3: 2 } as Record<string, number>)[p] ?? 3;
 
@@ -17,9 +17,19 @@ export function Dashboard() {
     prioRank(a.priority) - prioRank(b.priority) || (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999') || a.position - b.position,
   ).slice(0, 7);
 
-  const upcoming = [
-    ...db.events.filter(e => e.date >= today).map(e => ({ id: e.id, date: e.date, name: e.name, kind: e.kind, subject_id: e.subject_id })),
-  ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 7);
+  const future = db.events.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  // Les jours de cours sont résumés à part pour ne pas noyer les échéances.
+  const upcoming = future.filter(e => e.kind !== 'Cours').slice(0, 7);
+  const nextCourses = (() => {
+    const first = future.find(e => e.kind === 'Cours');
+    if (!first) return null;
+    const block = [first];
+    for (const e of future.filter(x => x.kind === 'Cours' && x.date > first.date)) {
+      if (daysFrom(e.date) - daysFrom(block.at(-1)!.date) > 3) break;
+      block.push(e);
+    }
+    return { from: block[0].date, to: block.at(-1)!.date, count: block.length };
+  })();
 
   const progress = (id: string) => {
     const ts = db.tasks.filter(t => t.subject_id === id);
@@ -122,6 +132,12 @@ export function Dashboard() {
                 </button>
               );
             }) : <Empty>Aucune date à venir.</Empty>}
+            {nextCourses && (
+              <button className="courses-next" style={{ ['--c' as string]: subject('cours')?.color }} onClick={() => go('calendrier')}>
+                <GraduationCap size={16} />
+                <span>Prochains cours : <b>{fmtShort(nextCourses.from)}{nextCourses.count > 1 && ` → ${fmtShort(nextCourses.to)}`}</b> · {relative(nextCourses.from)}</span>
+              </button>
+            )}
           </section>
 
           <section className="panel vision">

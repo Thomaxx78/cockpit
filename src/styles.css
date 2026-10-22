@@ -535,3 +535,9 @@ textarea { resize: vertical; }
 .key.ghost:disabled { opacity: .3; cursor: default; }
 .lock-foot { font-size: 12px; opacity: .5; }
 @media (max-height: 700px) { .lock-clock { display: none; } .lock { justify-content: center; } }
+.courses-next {
+  display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+  background: color-mix(in srgb, var(--c, var(--muted)) 10%, var(--surface)); color: var(--ink-2); transition: background .15s;
+}
+.courses-next svg { color: var(--c, var(--muted)); flex-shrink: 0; }
+.courses-next:hover { background: color-mix(in srgb, var(--c, var(--muted)) 18%, var(--surface)); }
