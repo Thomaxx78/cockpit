@@ -4,3 +4,7 @@ project_id = "cockpit"
 [functions.ai-chat]
 # Le jeton de l'utilisateur est exigé ; la fonction revérifie ensuite public.is_owner().
 verify_jwt = true
+
+[functions.daily-reminder]
+# Appelée par pg_cron, sans session utilisateur : protégée par l'en-tête x-cron-secret.
+verify_jwt = false

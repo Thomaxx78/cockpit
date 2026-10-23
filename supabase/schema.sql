@@ -143,3 +143,14 @@ create policy "owner own rows" on public.ai_requests
   for all to authenticated
   using (public.is_owner() and user_id = auth.uid())
   with check (public.is_owner() and user_id = auth.uid());
+
+-- ============================================================
+-- Rappel quotidien par mail (Edge Function daily-reminder)
+-- ============================================================
+-- Un envoi par jour au maximum. Aucune politique RLS : seule la fonction (service_role) y accède.
+create table if not exists public.reminder_log (
+  day      date primary key,
+  sent_at  timestamptz not null default now(),
+  detail   jsonb
+);
+alter table public.reminder_log enable row level security;
