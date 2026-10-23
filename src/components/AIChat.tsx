@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { ArrowUp, Check, CircleAlert, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import {
   aiAvailable, AIError, askAI, cancelAI, confirmAI,
@@ -110,10 +111,31 @@ export function AIChat() {
       addEventListener('click', swallow, { capture: true, once: true });
       setTimeout(() => removeEventListener('click', swallow, { capture: true }), 500);
     };
+    // Taper au clavier écrit directement dans la zone de saisie, où que soit le focus.
+    // Phase de capture : passe avant les raccourcis globaux (N, E, S…), qui ne doivent pas se déclencher.
+    const typeAnywhere = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (t === inputRef.current || /INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable) return;
+      if (document.querySelector('.backdrop') || !inputRef.current || inputRef.current.disabled) return;
+      e.stopPropagation();
+      inputRef.current.focus(); // le caractère est inséré dans le champ qui vient de recevoir le focus
+    };
     addEventListener('keydown', esc);
+    addEventListener('keydown', typeAnywhere, true);
     addEventListener('pointerdown', outside);
-    return () => { removeEventListener('keydown', esc); removeEventListener('pointerdown', outside); };
+    return () => {
+      removeEventListener('keydown', esc);
+      removeEventListener('keydown', typeAnywhere, true);
+      removeEventListener('pointerdown', outside);
+    };
   }, [open]);
+
+  /** Ouvre le panneau et place le curseur dans le champ pendant le clic (requis par iOS pour afficher le clavier). */
+  const openPanel = () => {
+    flushSync(() => setOpen(true));
+    inputRef.current?.focus();
+  };
 
   useLayoutEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
@@ -179,7 +201,7 @@ export function AIChat() {
   return (
     <>
       {!open && (
-        <button className={`ai-fab ${tucked ? 'tucked' : ''}`} onClick={() => setOpen(true)} aria-label="Ouvrir l’assistant IA" title="Assistant IA">
+        <button className={`ai-fab ${tucked ? 'tucked' : ''}`} onClick={openPanel} aria-label="Ouvrir l’assistant IA" title="Assistant IA">
           <Sparkles size={22} />
           {msgs.length > 0 && <span className="ai-fab-dot" />}
         </button>
