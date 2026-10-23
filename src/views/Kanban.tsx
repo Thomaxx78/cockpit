@@ -5,13 +5,13 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, User } from 'lucide-react';
+import { Plus, Search, User, X } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { DueBadge } from '../components/TaskRow';
-import { Prio, SubjectFilter, SubjectTag } from '../components/ui';
+import { Prio, SubjectTag } from '../components/ui';
 import { useStore } from '../lib/store';
-import { isActive, TASK_STATUSES, type Task } from '../lib/types';
-import { statusClass } from '../lib/utils';
+import { isActive, PRIORITIES, TASK_STATUSES, type Task } from '../lib/types';
+import { daysFrom, statusClass } from '../lib/utils';
 
 type Cols = Record<string, string[]>;
 
@@ -67,7 +67,25 @@ function Column({ status, ids, byId }: { status: string; ids: string[]; byId: Ma
 
 export function Kanban() {
   const { db, moveTask } = useStore();
-  const [filter, setFilter] = useState('all');
+  const { subject } = useStore();
+  const [q, setQ] = useState('');
+  const [subj, setSubj] = useState('all');
+  const [prio, setPrio] = useState('all');
+  const [person, setPerson] = useState('all');
+  const [due, setDue] = useState('all');
+  const activeFilters = [q.trim(), subj !== 'all', prio !== 'all', person !== 'all', due !== 'all'].filter(Boolean).length;
+  const reset = () => { setQ(''); setSubj('all'); setPrio('all'); setPerson('all'); setDue('all'); };
+
+  // Personnes citées dans les interlocuteurs (« Fred / Dominique (à confirmer) » → Fred, Dominique)
+  const people = useMemo(() => {
+    const names = new Set<string>();
+    for (const t of db.tasks) for (const n of t.owner.split(/[/;,]| et /)) {
+      const clean = n.replace(/\(.*?\)/g, '').trim();
+      // Garde les personnes (« Fred »), pas les rôles génériques (« organisateur », « à clarifier »)
+      if (/^\p{Lu}/u.test(clean) && !/^à clarifier$/i.test(clean)) names.add(clean);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [db.tasks]);
   const [drag, setDrag] = useState<Cols | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -83,11 +101,23 @@ export function Kanban() {
   const base = useMemo<Cols>(() => {
     const cols: Cols = Object.fromEntries(TASK_STATUSES.map(s => [s, []]));
     [...db.tasks]
-      .filter(t => filter === 'all' || t.subject_id === filter)
+      .filter(t => {
+        const needle = q.trim().toLowerCase();
+        const d = t.due_date ? daysFrom(t.due_date) : null;
+        return (subj === 'all' || (subj === 'none' ? !t.subject_id : t.subject_id === subj)) &&
+          (prio === 'all' || t.priority === prio) &&
+          (person === 'all' || t.owner.toLowerCase().includes(person.toLowerCase())) &&
+          (due === 'all' ||
+            (due === 'late' && d !== null && d < 0 && isActive(t.status)) ||
+            (due === 'week' && d !== null && d >= 0 && d <= 7) ||
+            (due === 'month' && d !== null && d >= 0 && d <= 31) ||
+            (due === 'none' && d === null)) &&
+          (!needle || `${t.name} ${t.owner} ${subject(t.subject_id)?.name ?? ''}`.toLowerCase().includes(needle));
+      })
       .sort((a, b) => a.position - b.position)
       .forEach(t => (cols[t.status] ?? cols['À faire']).push(t.id));
     return cols;
-  }, [db.tasks, filter]);
+  }, [db.tasks, q, subj, prio, person, due, subject]);
   const cols = drag ?? base;
 
   const sensors = useSensors(
@@ -141,10 +171,36 @@ export function Kanban() {
       <div className="page-head">
         <div>
           <h2>Avancement des actions</h2>
-          <p className="hint">Glisse les cartes entre colonnes. Chaque couleur correspond à un sujet — clique une puce pour filtrer.</p>
+          <p className="hint">Glisse les cartes entre colonnes. Le liseré de couleur indique le sujet.</p>
         </div>
       </div>
-      <SubjectFilter value={filter} onChange={setFilter} />
+      <div className="filters" role="search" aria-label="Filtrer le Kanban">
+        <label className="search filter-search">
+          <Search size={16} />
+          <input aria-label="Rechercher une carte" placeholder="Rechercher…" value={q} onChange={e => setQ(e.target.value)} />
+        </label>
+        <select aria-label="Sujet" className={subj !== 'all' ? 'on' : ''} value={subj} onChange={e => setSubj(e.target.value)}>
+          <option value="all">Tous les sujets</option>
+          {db.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          <option value="none">Sans sujet</option>
+        </select>
+        <select aria-label="Priorité" className={prio !== 'all' ? 'on' : ''} value={prio} onChange={e => setPrio(e.target.value)}>
+          <option value="all">Priorité</option>
+          {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select aria-label="Personne" className={person !== 'all' ? 'on' : ''} value={person} onChange={e => setPerson(e.target.value)}>
+          <option value="all">Personne</option>
+          {people.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <select aria-label="Échéance" className={due !== 'all' ? 'on' : ''} value={due} onChange={e => setDue(e.target.value)}>
+          <option value="all">Échéance</option>
+          <option value="late">En retard</option>
+          <option value="week">Dans les 7 jours</option>
+          <option value="month">Dans le mois</option>
+          <option value="none">Sans échéance</option>
+        </select>
+        {activeFilters > 0 && <button className="btn ghost filter-reset" onClick={reset}><X size={15} /> Effacer ({activeFilters})</button>}
+      </div>
       <nav className="kcol-tabs" aria-label="Colonnes">
         {TASK_STATUSES.map(s => (
           <button key={s} onClick={() => document.getElementById('kcol-' + statusClass(s))?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })}>

@@ -888,3 +888,16 @@ textarea { resize: vertical; }
 #kcol-backlog { background: transparent; border: 1.5px dashed var(--line-2); }
 #kcol-backlog .kcard { box-shadow: none; }
 #kcol-backlog .kcard:not(:hover) { opacity: .82; }
+
+/* ---------- Barre de filtres compacte (Kanban) ---------- */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.filters .filter-search { flex: 1 1 220px; max-width: 320px; min-width: 180px; }
+.filters select { padding: 8px 30px 8px 11px; max-width: 220px; cursor: pointer; }
+.filters select.on { border-color: var(--brand); background-color: var(--brand-soft); color: var(--ink); font-weight: 600; }
+.filter-reset { color: var(--brand); padding: 7px 10px; }
+@media (max-width: 700px) {
+  .filters { gap: 8px; }
+  .filters .filter-search { flex-basis: 100%; max-width: none; min-height: 46px; }
+  .filters select { flex: 1 1 calc(50% - 4px); max-width: none; min-height: 44px; font-size: 15px; }
+  .filter-reset { flex-basis: 100%; }
+}
