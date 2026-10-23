@@ -49,7 +49,7 @@ function Column({ status, ids, byId }: { status: string; ids: string[]; byId: Ma
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const { editTask } = useEditors();
   return (
-    <section className={`kcol ${isOver ? 'over' : ''}`}>
+    <section id={'kcol-' + statusClass(status)} className={`kcol ${isOver ? 'over' : ''}`} aria-label={`Colonne ${status}, ${ids.length} carte${ids.length > 1 ? 's' : ''}`}>
       <header className="kcol-head">
         <span className={`kcol-dot ${statusClass(status)}`} />
         {status}
@@ -137,6 +137,13 @@ export function Kanban() {
         </div>
       </div>
       <SubjectFilter value={filter} onChange={setFilter} />
+      <nav className="kcol-tabs" aria-label="Colonnes">
+        {TASK_STATUSES.map(s => (
+          <button key={s} onClick={() => document.getElementById('kcol-' + statusClass(s))?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' })}>
+            <span className={`kcol-dot ${statusClass(s)}`} />{s}<b>{cols[s].length}</b>
+          </button>
+        ))}
+      </nav>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}

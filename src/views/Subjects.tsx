@@ -31,9 +31,9 @@ export function Subjects({ initialStatus }: { initialStatus?: string }) {
       </div>
 
       <div className="toolbar">
-        <label className="search"><Search size={16} /><input placeholder="Rechercher un sujet, une personne…" value={q} onChange={e => setQ(e.target.value)} /></label>
-        <select value={cat} onChange={e => setCat(e.target.value)}><option>Toutes</option>{cats.map(c => <option key={c}>{c}</option>)}</select>
-        <select value={status} onChange={e => setStatus(e.target.value)}><option>Tous</option>{SUBJECT_STATUSES.map(s => <option key={s}>{s}</option>)}</select>
+        <label className="search"><Search size={16} /><input aria-label="Rechercher un sujet" placeholder="Rechercher un sujet, une personne…" value={q} onChange={e => setQ(e.target.value)} /></label>
+        <select aria-label="Catégorie" value={cat} onChange={e => setCat(e.target.value)}><option>Toutes</option>{cats.map(c => <option key={c}>{c}</option>)}</select>
+        <select aria-label="Statut" value={status} onChange={e => setStatus(e.target.value)}><option>Tous</option>{SUBJECT_STATUSES.map(s => <option key={s}>{s}</option>)}</select>
       </div>
 
       {items.length ? (

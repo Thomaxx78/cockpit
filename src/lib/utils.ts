@@ -65,3 +65,17 @@ export const go = (path: string) => { location.hash = '/' + path; };
 export const fmtTime = (t: string) => t.replace(/^0(?=\d)/, '').replace(/:00$/, 'h').replace(':', 'h');
 export const timeRange = (start?: string | null, end?: string | null) =>
   start ? (end ? `${fmtTime(start)}–${fmtTime(end)}` : fmtTime(start)) : '';
+
+/** Vrai quand la media query correspond (ex. téléphone). */
+export function useMedia(query: string) {
+  const [match, setMatch] = useState(() => typeof matchMedia !== 'undefined' && matchMedia(query).matches);
+  useEffect(() => {
+    const mq = matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [query]);
+  return match;
+}
+export const MOBILE = '(max-width: 700px)';

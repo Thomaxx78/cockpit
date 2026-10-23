@@ -25,12 +25,13 @@ export function SubjectTag({ id }: { id: string | null }) {
 export function SubjectFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { db } = useStore();
   return (
-    <div className="chips">
-      <button className={`chip ${value === 'all' ? 'active' : ''}`} onClick={() => onChange('all')}>Tous les sujets</button>
+    <div className="chips" role="group" aria-label="Filtrer par sujet">
+      <button className={`chip ${value === 'all' ? 'active' : ''}`} aria-pressed={value === 'all'} onClick={() => onChange('all')}>Tous les sujets</button>
       {db.subjects.map(s => (
         <button
           key={s.id}
           className={`chip ${value === s.id ? 'active' : ''}`}
+          aria-pressed={value === s.id}
           style={{ ['--c' as string]: s.color }}
           onClick={() => onChange(value === s.id ? 'all' : s.id)}
         >
@@ -52,7 +53,7 @@ export function Modal({ title, onClose, children, footer, accent }: {
   }, [onClose]);
   return (
     <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" style={accent ? { ['--c' as string]: accent } : undefined}>
+      <div className="modal" role="dialog" aria-modal="true" style={accent ? { ['--c' as string]: accent } : undefined}>
         <header className="modal-head">
           <h2>{title}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Fermer"><X size={18} /></button>

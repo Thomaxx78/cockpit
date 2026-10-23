@@ -8,8 +8,8 @@ import { SUBJECT_STATUSES, type Subject } from '../lib/types';
 import { dayMonth, go, relative, statusClass, timeRange } from '../lib/utils';
 
 /** Champ éditable sur place, sauvegardé automatiquement (pause de frappe ou sortie du champ). */
-function Inline({ value, onSave, placeholder, className, multiline = true }: {
-  value: string; onSave: (v: string) => void; placeholder?: string; className?: string; multiline?: boolean;
+function Inline({ value, onSave, placeholder, className, multiline = true, label }: {
+  value: string; onSave: (v: string) => void; placeholder?: string; className?: string; multiline?: boolean; label?: string;
 }) {
   const [draft, setDraft] = useState(value);
   const focused = useRef(false);
@@ -27,6 +27,7 @@ function Inline({ value, onSave, placeholder, className, multiline = true }: {
     className: `inline ${className ?? ''}`,
     value: draft,
     placeholder,
+    'aria-label': label ?? placeholder,
     onFocus: () => { focused.current = true; },
     onBlur: () => { focused.current = false; flush(draft); },
   };
@@ -75,7 +76,7 @@ export function SubjectDetail({ id }: { id: string }) {
           <Inline className="category-input" multiline={false} value={s.category} onSave={v => set({ category: v })} placeholder="Catégorie" />
           <div className="hero-actions">
             <button className="color-btn" style={{ background: s.color }} onClick={() => setShowColors(v => !v)} aria-label="Couleur" />
-            <select className={`pill-select ${statusClass(s.status)}`} value={s.status} onChange={e => set({ status: e.target.value })}>
+            <select aria-label="Statut du sujet" className={`pill-select ${statusClass(s.status)}`} value={s.status} onChange={e => set({ status: e.target.value })}>
               {SUBJECT_STATUSES.map(x => <option key={x}>{x}</option>)}
             </select>
           </div>
@@ -84,8 +85,8 @@ export function SubjectDetail({ id }: { id: string }) {
         <Inline className="title-input" value={s.name} onSave={v => v.trim() && set({ name: v.trim() })} placeholder="Nom du sujet" />
         <Inline className="summary-input" value={s.summary} onSave={v => set({ summary: v })} placeholder="Résumé du sujet…" />
         <div className="hero-meta">
-          <span>Origine : <Inline className="meta-input" multiline={false} value={s.origin} onSave={v => set({ origin: v })} placeholder="—" /></span>
-          <span>Échéance : <input type="date" className="inline meta-input" value={s.due_date ?? ''} onChange={e => set({ due_date: e.target.value || null })} /></span>
+          <span>Origine : <Inline className="meta-input" multiline={false} value={s.origin} onSave={v => set({ origin: v })} placeholder="—" label="Origine" /></span>
+          <span>Échéance : <input type="date" aria-label="Échéance du sujet" className="inline meta-input" value={s.due_date ?? ''} onChange={e => set({ due_date: e.target.value || null })} /></span>
           {tasks.length > 0 && <span>{done}/{tasks.length} actions terminées</span>}
           <span className="autosave">{saving ? 'Enregistrement…' : <><Check size={13} /> Enregistré</>}</span>
         </div>
@@ -98,20 +99,20 @@ export function SubjectDetail({ id }: { id: string }) {
             {blocks.map(([k, label, ph]) => (
               <div key={k} className="fact">
                 <h4>{label}</h4>
-                <Inline value={String(s[k] ?? '')} onSave={v => set({ [k]: v })} placeholder={ph} />
+                <Inline value={String(s[k] ?? '')} onSave={v => set({ [k]: v })} placeholder={ph} label={label} />
               </div>
             ))}
           </section>
           <section className="panel">
             <h3>Notes complémentaires</h3>
-            <Inline className="notes" value={s.notes} onSave={v => set({ notes: v })} placeholder="Saisir les informations apprises lors des prochains échanges…" />
+            <Inline className="notes" value={s.notes} label="Notes complémentaires" onSave={v => set({ notes: v })} placeholder="Saisir les informations apprises lors des prochains échanges…" />
           </section>
         </div>
 
         <div className="col">
           <section className="panel">
             <h3>Interlocuteurs</h3>
-            <Inline value={s.people} onSave={v => set({ people: v })} placeholder="Noms, rôles…" />
+            <Inline value={s.people} onSave={v => set({ people: v })} placeholder="Noms, rôles…" label="Interlocuteurs" />
           </section>
 
           <section className="panel">

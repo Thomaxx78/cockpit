@@ -21,7 +21,15 @@ export function TaskRow({ t, showSubject = true, showStatus = false }: { t: Task
   const { editTask } = useEditors();
   const done = t.status === 'Terminé';
   return (
-    <div className={`task-row ${done ? 'is-done' : ''}`} style={{ ['--c' as string]: subject(t.subject_id)?.color }} onClick={() => editTask(t)}>
+    <div
+      className={`task-row ${done ? 'is-done' : ''}`}
+      style={{ ['--c' as string]: subject(t.subject_id)?.color }}
+      role="button"
+      tabIndex={0}
+      aria-label={`${t.name}, ${t.priority}, ${t.status}. Modifier`}
+      onClick={() => editTask(t)}
+      onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); editTask(t); } }}
+    >
       <button
         className={`check ${done ? 'on' : ''}`}
         aria-label={done ? 'Rouvrir' : 'Terminer'}

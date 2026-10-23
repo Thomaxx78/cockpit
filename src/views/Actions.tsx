@@ -51,10 +51,10 @@ export function Actions() {
 
       <div className="toolbar">
         <div className="segmented">
-          {VIEWS.map(v => <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>{v}</button>)}
+          {VIEWS.map(v => <button key={v} className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => setView(v)}>{v}</button>)}
         </div>
-        <select value={prio} onChange={e => setPrio(e.target.value)}><option>Toutes</option>{PRIORITIES.map(p => <option key={p}>{p}</option>)}</select>
-        <label className="search"><Search size={16} /><input placeholder="Rechercher…" value={q} onChange={e => setQ(e.target.value)} /></label>
+        <select aria-label="Priorité" value={prio} onChange={e => setPrio(e.target.value)}><option value="Toutes">Toutes priorités</option>{PRIORITIES.map(p => <option key={p} value={p}>Priorité {p}</option>)}</select>
+        <label className="search"><Search size={16} /><input aria-label="Rechercher une action" placeholder="Rechercher…" value={q} onChange={e => setQ(e.target.value)} /></label>
       </div>
 
       <section className="panel flush">

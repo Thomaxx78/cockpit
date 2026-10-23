@@ -72,9 +72,24 @@ export function AIChat() {
   const [busy, setBusy] = useState<null | 'thinking' | 'executing'>(null);
   const [model, setModel] = useState<string>();
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(Date.now());
   const available = aiAvailable();
+
+  // Sur téléphone, le bouton s'efface quand on descend dans la page et revient quand on remonte.
+  const [tucked, setTucked] = useState(false);
+  useEffect(() => {
+    let last = scrollY;
+    const on = () => {
+      const y = scrollY;
+      if (Math.abs(y - last) < 12) return;
+      setTucked(y > last && y > 160);
+      last = y;
+    };
+    addEventListener('scroll', on, { passive: true });
+    return () => removeEventListener('scroll', on);
+  }, []);
 
   useEffect(() => {
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ msgs: msgs.slice(-60), refs })); } catch { /* stockage indisponible */ }
@@ -84,8 +99,20 @@ export function AIChat() {
     if (!open) return;
     inputRef.current?.focus();
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.backdrop') && setOpen(false);
+    // Un clic en dehors du panneau le ferme (les messages sont conservés).
+    // Ignoré dans les fenêtres ouvertes depuis le chat (édition d'une action…) et les notifications.
+    const outside = (e: PointerEvent) => {
+      const t = e.target as Element | null;
+      if (!t || panelRef.current?.contains(t) || t.closest('.backdrop, .toasts')) return;
+      setOpen(false);
+      // Ce clic sert uniquement à fermer : il ne doit pas cocher ou ouvrir ce qui est dessous.
+      const swallow = (ev: MouseEvent) => { ev.stopPropagation(); ev.preventDefault(); };
+      addEventListener('click', swallow, { capture: true, once: true });
+      setTimeout(() => removeEventListener('click', swallow, { capture: true }), 500);
+    };
     addEventListener('keydown', esc);
-    return () => removeEventListener('keydown', esc);
+    addEventListener('pointerdown', outside);
+    return () => { removeEventListener('keydown', esc); removeEventListener('pointerdown', outside); };
   }, [open]);
 
   useLayoutEffect(() => {
@@ -152,14 +179,14 @@ export function AIChat() {
   return (
     <>
       {!open && (
-        <button className="ai-fab" onClick={() => setOpen(true)} aria-label="Ouvrir l’assistant IA" title="Assistant IA">
+        <button className={`ai-fab ${tucked ? 'tucked' : ''}`} onClick={() => setOpen(true)} aria-label="Ouvrir l’assistant IA" title="Assistant IA">
           <Sparkles size={22} />
           {msgs.length > 0 && <span className="ai-fab-dot" />}
         </button>
       )}
 
       {open && (
-        <section className="ai-panel" role="dialog" aria-label="Assistant IA">
+        <section className="ai-panel" role="dialog" aria-label="Assistant IA" ref={panelRef}>
           <header className="ai-head">
             <span className="ai-avatar"><Sparkles size={17} /></span>
             <div className="ai-title">
@@ -253,6 +280,7 @@ export function AIChat() {
                 value={input}
                 maxLength={2000}
                 disabled={!available}
+                aria-label="Message pour l’assistant"
                 placeholder={available ? 'Écris une demande… (Entrée pour envoyer)' : 'Assistant indisponible'}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
