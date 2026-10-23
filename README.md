@@ -79,3 +79,12 @@ npx supabase functions deploy ai-chat --project-ref <ref-du-projet>
 ```bash
 npm run test:ai   # 17 scénarios : création, statut, Kanban, recherche, ambiguïté, confirmation, injection, quota…
 ```
+
+## Rappel quotidien par mail
+
+Les jours où une réunion (hors cours) ou une échéance d'action est prévue, un mail récapitulatif est envoyé à **9h, heure de Paris**. Les jours sans rien de prévu, aucun mail n'est envoyé.
+
+- Edge Function `supabase/functions/daily-reminder`, envoi via [Resend](https://resend.com).
+- Déclenchement par `pg_cron` à 7h et 8h UTC (voir `supabase/cron-reminder.sql`). Seule l'exécution qui tombe à 9h à Paris envoie le mail, en heure d'été comme en heure d'hiver, une seule fois par jour (table `reminder_log`).
+- Secrets Supabase : `CRON_SECRET`, `RESEND_API_KEY`, `REMINDER_TO`, `APP_URL` (optionnel), `REMINDER_FROM` (optionnel, par défaut `onboarding@resend.dev`).
+- Pour mettre en pause : `select cron.unschedule('cockpit-reminder-7utc'); select cron.unschedule('cockpit-reminder-8utc');`
