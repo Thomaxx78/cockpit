@@ -1,7 +1,9 @@
 // Modèle de données et validation côté serveur.
 // Miroir de src/lib/types.ts (le code de l'Edge Function ne peut pas importer src/).
 
-export const TASK_STATUSES = ['À faire', 'En cours', 'En attente', 'Terminé'];
+export const TASK_STATUSES = ['Backlog', 'À faire', 'En cours', 'En attente', 'Terminé'];
+/** Action à traiter : ni terminée, ni mise de côté dans le backlog. */
+export const isActive = (status: string) => status !== 'Terminé' && status !== 'Backlog';
 export const SUBJECT_STATUSES = ['À cadrer', 'À faire', 'En cours', 'En attente', 'Terminé'];
 export const PRIORITIES = ['P1', 'P2', 'P3'];
 export const PALETTE = ['#8b5cf6', '#2563eb', '#0d9488', '#ea580c', '#db2777', '#64748b', '#0891b2', '#65a30d', '#a16207', '#dc2626', '#4f46e5', '#059669'];

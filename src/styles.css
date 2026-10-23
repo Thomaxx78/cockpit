@@ -342,7 +342,7 @@ textarea { resize: vertical; }
 .swatch.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
 
 /* ---------- Kanban ---------- */
-.kanban { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 14px; align-items: start; overflow-x: auto; padding-bottom: 8px; }
+.kanban { display: grid; grid-template-columns: repeat(5, minmax(208px, 1fr)); gap: 14px; align-items: start; overflow-x: auto; padding-bottom: 8px; }
 .kcol { background: var(--sunken); border-radius: var(--radius); padding: 10px; transition: background .2s, box-shadow .2s; min-height: 200px; }
 .kcol.over { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--brand) 40%, transparent); }
 .kcol-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 10px; font-weight: 700; }
@@ -796,7 +796,7 @@ textarea { resize: vertical; }
   .btn.back { margin: -4px 0 -8px -10px; }
 
   /* Kanban : colonnes en carrousel */
-  .kanban { grid-template-columns: repeat(4, 86vw); gap: 12px; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 0 16px 12px; scroll-padding: 0 16px; }
+  .kanban { grid-template-columns: repeat(5, 86vw); gap: 12px; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 0 16px 12px; scroll-padding: 0 16px; }
   .kcol { scroll-snap-align: start; border-radius: 18px; }
   .kcard { padding: 13px 13px 13px 15px; border-radius: 13px; }
   .kcard-name { font-size: 15px; }
@@ -881,3 +881,10 @@ textarea { resize: vertical; }
   }
   .kcol-tabs b { font-size: 12px; color: var(--muted); background: var(--surface); padding: 1px 7px; border-radius: 10px; }
 }
+
+/* ---------- Backlog : tickets en réserve ---------- */
+.pill.backlog { background: var(--sunken); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line-2); }
+.kcol-dot.backlog { background: transparent; box-shadow: inset 0 0 0 2px var(--muted-2); }
+#kcol-backlog { background: transparent; border: 1.5px dashed var(--line-2); }
+#kcol-backlog .kcard { box-shadow: none; }
+#kcol-backlog .kcard:not(:hover) { opacity: .82; }

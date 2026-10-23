@@ -288,3 +288,22 @@ test('schémas d’outils compacts (quota gratuit)', async () => {
   assert.doesNotMatch(json, /"description":"Mots|"limit"|minItems/);
   assert.equal(toolSchemas().length, 15);
 });
+
+test('backlog : exclu par défaut des recherches et des retards, accessible sur demande', async () => {
+  const s = seed();
+  s.tasks.push({ id: 't9', name: 'Idée : refonte du site', subject_id: null, status: 'Backlog', priority: 'P1', owner: '', due_date: '2026-10-01', position: 9 });
+  const repo = memoryRepo(s, () => NOW);
+  const llm = scriptedLLM([
+    { calls: [call('list_tasks', { priority: 'P1' }), call('list_tasks', { overdue: true }), call('list_tasks', { status: 'Backlog' }), call('list_tasks', { include_backlog: true, priority: 'P1' })] },
+    { content: 'ok' },
+  ]);
+  await runAgent(llm, repo, { message: 'x', now: NOW });
+  const [p1, late, backlog, all] = toolOutputs(llm.seen[1]);
+  assert.ok(!p1.items.some((x: { id: string }) => x.id === 't9'), 'P1 sans le backlog');
+  assert.ok(!late.items.some((x: { id: string }) => x.id === 't9'), 'pas en retard');
+  assert.deepEqual(backlog.items.map((x: { id: string }) => x.id), ['t9']);
+  assert.ok(all.items.some((x: { id: string }) => x.id === 't9'), 'inclus sur demande');
+  const mv = await runAgent(scriptedLLM([{ calls: [call('move_task', { task_id: 't1', status: 'Backlog' })] }]), repo, { message: 'mets le portail au backlog', now: NOW });
+  assert.equal(mv.changed, true);
+  assert.equal((repo.data.tasks.find(x => x.id === 't1') as Task).status, 'Backlog');
+});

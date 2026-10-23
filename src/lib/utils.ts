@@ -33,7 +33,7 @@ export const relative = (d: string) => {
 };
 
 export const statusClass = (s: string) =>
-  ({ 'En cours': 'ongoing', 'À faire': 'todo', 'En attente': 'waiting', 'Terminé': 'done', 'À cadrer': 'scope' } as Record<string, string>)[s] ?? 'neutral';
+  ({ 'En cours': 'ongoing', 'À faire': 'todo', 'En attente': 'waiting', 'Terminé': 'done', 'À cadrer': 'scope', 'Backlog': 'backlog' } as Record<string, string>)[s] ?? 'neutral';
 
 export function download(blob: Blob, name: string) {
   const u = URL.createObjectURL(blob);

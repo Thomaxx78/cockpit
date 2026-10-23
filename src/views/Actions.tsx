@@ -4,7 +4,7 @@ import { useEditors } from '../components/editors';
 import { TaskRow } from '../components/TaskRow';
 import { Empty, SubjectFilter } from '../components/ui';
 import { useStore } from '../lib/store';
-import { PRIORITIES, TASK_STATUSES } from '../lib/types';
+import { isActive, PRIORITIES, TASK_STATUSES } from '../lib/types';
 import { download } from '../lib/utils';
 
 const VIEWS = ['Ouvertes', ...TASK_STATUSES, 'Toutes'] as const;
@@ -21,11 +21,11 @@ export function Actions() {
   const list = db.tasks
     .filter(t =>
       (filter === 'all' || t.subject_id === filter) &&
-      (view === 'Toutes' || (view === 'Ouvertes' ? t.status !== 'Terminé' : t.status === view)) &&
+      (view === 'Toutes' || (view === 'Ouvertes' ? isActive(t.status) : t.status === view)) &&
       (prio === 'Toutes' || t.priority === prio) &&
       `${t.name} ${t.owner}`.toLowerCase().includes(needle))
     .sort((a, b) => Number(a.status === 'Terminé') - Number(b.status === 'Terminé') || a.priority.localeCompare(b.priority) || (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999'));
-  const open = db.tasks.filter(t => t.status !== 'Terminé').length;
+  const open = db.tasks.filter(t => isActive(t.status)).length;
 
   const exportCSV = () => {
     const rows = [['Action', 'Sujet', 'Statut', 'Priorité recommandée', 'Interlocuteur', 'Échéance'],

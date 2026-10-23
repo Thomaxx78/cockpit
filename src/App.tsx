@@ -9,6 +9,7 @@ import { MoreMenu } from './components/MoreMenu';
 import { Palette } from './components/Palette';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
+import { isActive } from './lib/types';
 import { download, useRoute } from './lib/utils';
 import { Actions } from './views/Actions';
 import { Calendar } from './views/Calendar';
@@ -95,7 +96,7 @@ export function App({ email }: { email: string | null }) {
           {NAV.map(([path, label, Icon]) => (
             <a key={path} href={'#/' + path} className={`nav ${page === path ? 'active' : ''}`} title={label} aria-current={page === path ? 'page' : undefined}>
               <Icon size={18} /><span>{label}</span>
-              {path === 'actions' && <span className="nav-count">{db.tasks.filter(t => t.status !== 'Terminé').length}</span>}
+              {path === 'actions' && <span className="nav-count">{db.tasks.filter(t => isActive(t.status)).length}</span>}
             </a>
           ))}
         </nav>

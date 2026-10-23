@@ -1,5 +1,5 @@
 import {
-  color, date, fmtDate, id, oneOf, PALETTE, PRIORITIES, str, SUBJECT_STATUSES, TASK_STATUSES, time, ValidationError,
+  color, date, fmtDate, id, isActive, oneOf, PALETTE, PRIORITIES, str, SUBJECT_STATUSES, TASK_STATUSES, time, ValidationError,
   type AnyRow, type CalEvent, type Subject, type Table, type Task,
 } from './domain.ts';
 import type { Op, Repo } from './repo.ts';
@@ -78,7 +78,7 @@ async function taskView(ctx: ToolCtx, t: Task) {
   return {
     id: t.id, name: t.name, status: t.status, priority: t.priority,
     owner: t.owner || undefined, due: t.due_date ?? undefined,
-    overdue: !!t.due_date && t.due_date < ctx.today && t.status !== 'Terminé' ? true : undefined,
+    overdue: !!t.due_date && t.due_date < ctx.today && isActive(t.status) ? true : undefined,
     subject: await subjectName(ctx, t.subject_id),
   };
 }
@@ -91,7 +91,7 @@ const diff = (label: string, before: unknown, after: unknown) =>
 const listTasks: Tool = {
   name: 'list_tasks',
   mode: 'read',
-  description: 'Cherche des actions (hors terminées par défaut). Filtres : query, status, priority, subject_id, owner, overdue, due_before, due_after, include_done.',
+  description: 'Cherche des actions (hors terminées et backlog par défaut). Filtres : query, status, priority, subject_id, owner, overdue, due_before, due_after, include_done, include_backlog.',
   parameters: {
     type: 'object',
     properties: {
@@ -104,6 +104,7 @@ const listTasks: Tool = {
       due_before: { type: 'string', description: 'Échéance au plus tard ce jour (AAAA-MM-JJ)' },
       due_after: { type: 'string', description: 'Échéance au plus tôt ce jour (AAAA-MM-JJ)' },
       include_done: { type: 'boolean', description: 'Inclure les actions terminées' },
+      include_backlog: { type: 'boolean', description: 'Inclure le backlog (tickets en réserve)' },
       limit: { type: 'integer', minimum: 1, maximum: 25 },
     },
   },
@@ -116,16 +117,18 @@ const listTasks: Tool = {
     const q = str(a.query, 'query', 120);
     const subj = a.subject_id ? id(a.subject_id, 'subject_id') : undefined;
     const includeDone = a.include_done === true || status === 'Terminé';
+    const includeBacklog = a.include_backlog === true || status === 'Backlog';
     const subjects = await rows<Subject>(ctx, 'subjects');
     const nameOf = (sid: string | null) => subjects.find(s => s.id === sid)?.name ?? '';
     const list = (await rows<Task>(ctx, 'tasks'))
       .filter(t =>
         (includeDone || t.status !== 'Terminé') &&
+        (includeBacklog || t.status !== 'Backlog') &&
         (!status || t.status === status) &&
         (!priority || t.priority === priority) &&
         (!subj || t.subject_id === subj) &&
         (!owner || matches(t.owner, owner)) &&
-        (a.overdue !== true || (!!t.due_date && t.due_date < ctx.today && t.status !== 'Terminé')) &&
+        (a.overdue !== true || (!!t.due_date && t.due_date < ctx.today && isActive(t.status))) &&
         (!before || (!!t.due_date && t.due_date <= before)) &&
         (!after || (!!t.due_date && t.due_date >= after)) &&
         matches(`${t.name} ${t.owner} ${nameOf(t.subject_id)}`, q))
@@ -357,7 +360,7 @@ const listSubjects: Tool = {
         id: s.id, name: s.name, category: s.category || undefined, status: s.status,
         next_step: s.next_step ? cut(s.next_step, 160) : undefined,
         summary: s.summary ? cut(s.summary, 200) : undefined,
-        open_tasks: tasks.filter(t => t.subject_id === s.id && t.status !== 'Terminé').length,
+        open_tasks: tasks.filter(t => t.subject_id === s.id && isActive(t.status)).length,
       })),
     };
   },

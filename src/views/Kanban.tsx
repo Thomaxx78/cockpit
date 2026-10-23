@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   closestCorners, DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragOverEvent, type DragStartEvent,
@@ -10,7 +10,7 @@ import { useEditors } from '../components/editors';
 import { DueBadge } from '../components/TaskRow';
 import { Prio, SubjectFilter, SubjectTag } from '../components/ui';
 import { useStore } from '../lib/store';
-import { TASK_STATUSES, type Task } from '../lib/types';
+import { isActive, TASK_STATUSES, type Task } from '../lib/types';
 import { statusClass } from '../lib/utils';
 
 type Cols = Record<string, string[]>;
@@ -23,7 +23,7 @@ function Card({ t, overlay }: { t: Task; overlay?: boolean }) {
       <div className="kcard-name">{t.name}</div>
       <div className="meta">
         {t.owner && <span className="meta-item"><User size={12} /> {t.owner}</span>}
-        <DueBadge date={t.due_date} done={t.status === 'Terminé'} />
+        <DueBadge date={t.due_date} done={!isActive(t.status)} />
       </div>
     </div>
   );
@@ -70,6 +70,14 @@ export function Kanban() {
   const [filter, setFilter] = useState('all');
   const [drag, setDrag] = useState<Cols | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+
+  // Sur téléphone, on arrive sur « À faire » : le backlog (souvent vide) reste à gauche, accessible en glissant.
+  useLayoutEffect(() => {
+    const board = boardRef.current;
+    const todo = document.getElementById('kcol-todo');
+    if (board && todo && board.scrollWidth > board.clientWidth) board.scrollLeft = todo.offsetLeft - board.offsetLeft - 16;
+  }, []);
 
   const byId = useMemo(() => new Map(db.tasks.map(t => [t.id, t])), [db.tasks]);
   const base = useMemo<Cols>(() => {
@@ -152,7 +160,7 @@ export function Kanban() {
         onDragEnd={onEnd}
         onDragCancel={() => { setDrag(null); setActiveId(null); }}
       >
-        <div className="kanban">
+        <div className="kanban" ref={boardRef}>
           {TASK_STATUSES.map(s => <Column key={s} status={s} ids={cols[s]} byId={byId} />)}
         </div>
         <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' }}>

@@ -3,6 +3,7 @@ import { useEditors } from '../components/editors';
 import { TaskRow } from '../components/TaskRow';
 import { Dot, Empty, Pill } from '../components/ui';
 import { useStore } from '../lib/store';
+import { isActive } from '../lib/types';
 import { dayMonth, daysFrom, fmtShort, go, relative, timeRange, todayIso } from '../lib/utils';
 
 const prioRank = (p: string) => ({ P1: 0, P2: 1, P3: 2 } as Record<string, number>)[p] ?? 3;
@@ -11,7 +12,8 @@ export function Dashboard() {
   const { db, subject } = useStore();
   const { editTask } = useEditors();
   const today = todayIso();
-  const open = db.tasks.filter(t => t.status !== 'Terminé');
+  const open = db.tasks.filter(t => isActive(t.status));
+  const backlog = db.tasks.filter(t => t.status === 'Backlog').length;
   const late = open.filter(t => t.due_date && t.due_date < today);
   const next = [...open].sort((a, b) =>
     prioRank(a.priority) - prioRank(b.priority) || (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999') || a.position - b.position,
@@ -57,7 +59,7 @@ export function Dashboard() {
           <span className="stat-ico"><ListChecks size={18} /></span>
           <span className="stat-label">Actions ouvertes</span>
           <span className="stat-num">{open.length}</span>
-          <span className="stat-sub">{open.filter(t => t.priority === 'P1').length} recommandées P1{late.length > 0 && <b className="late-text"> · {late.length} en retard</b>}</span>
+          <span className="stat-sub">{open.filter(t => t.priority === 'P1').length} recommandées P1{backlog > 0 && ` · ${backlog} en backlog`}{late.length > 0 && <b className="late-text"> · {late.length} en retard</b>}</span>
         </button>
         <button className="stat" onClick={() => go('sujets?statut=En cours')}>
           <span className="stat-ico"><CircleDot size={18} /></span>

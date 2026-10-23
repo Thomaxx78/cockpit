@@ -41,7 +41,9 @@ export type DB = { subjects: Subject[]; tasks: Task[]; events: CalEvent[] };
 export type Table = keyof DB;
 export type Row<T extends Table> = DB[T][number];
 
-export const TASK_STATUSES = ['À faire', 'En cours', 'En attente', 'Terminé'] as const;
+export const TASK_STATUSES = ['Backlog', 'À faire', 'En cours', 'En attente', 'Terminé'] as const;
+/** Action à traiter : ni terminée, ni mise de côté dans le backlog. */
+export const isActive = (status: string) => status !== 'Terminé' && status !== 'Backlog';
 export const SUBJECT_STATUSES = ['À cadrer', 'À faire', 'En cours', 'En attente', 'Terminé'] as const;
 export const PRIORITIES = ['P1', 'P2', 'P3'] as const;
 export const EVENT_KINDS = ['Événement', 'Action', 'Échéance', 'Hypothèse', 'Récurrence théorique', 'Rendez-vous'];

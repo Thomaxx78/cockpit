@@ -1,6 +1,6 @@
 import { Check, CalendarDays, User } from 'lucide-react';
 import { useStore } from '../lib/store';
-import type { Task } from '../lib/types';
+import { isActive, type Task } from '../lib/types';
 import { daysFrom, fmtShort, relative } from '../lib/utils';
 import { useEditors } from './editors';
 import { Pill, Prio, SubjectTag } from './ui';
@@ -46,7 +46,7 @@ export function TaskRow({ t, showSubject = true, showStatus = false }: { t: Task
         <div className="meta">
           {showSubject && <SubjectTag id={t.subject_id} />}
           {t.owner && <span className="meta-item"><User size={12} /> {t.owner}</span>}
-          <DueBadge date={t.due_date} done={done} />
+          <DueBadge date={t.due_date} done={!isActive(t.status)} />
         </div>
       </div>
       {showStatus && <Pill status={t.status} />}
