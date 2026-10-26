@@ -108,6 +108,7 @@ function TaskEditor({ initial, isNew, onClose }: { initial: Task; isNew: boolean
 function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: boolean; onClose: () => void }) {
   const { saveEvent, deleteEvent, toast, subject } = useStore();
   const [e, setE] = useState(initial);
+  const fromOutlook = initial.id.startsWith('ol-');
   const set = (p: Partial<CalEvent>) => setE(x => ({ ...x, ...p }));
   const submit = () => {
     if (!e.name.trim() || !e.date) return toast('Nom et date obligatoires', 'error');
@@ -122,7 +123,7 @@ function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: bo
       accent={subject(e.subject_id)?.color}
       onClose={onClose}
       footer={<>
-        {!isNew && <button className="btn danger ghost" onClick={() => { if (confirm('Supprimer cet événement ?')) { deleteEvent(e.id); toast('Événement supprimé'); onClose(); } }}><Trash2 size={15} /> Supprimer</button>}
+        {!isNew && !fromOutlook && <button className="btn danger ghost" onClick={() => { if (confirm('Supprimer cet événement ?')) { deleteEvent(e.id); toast('Événement supprimé'); onClose(); } }}><Trash2 size={15} /> Supprimer</button>}
         {!isNew && e.subject_id && <button className="btn ghost" onClick={() => { onClose(); go('sujets/' + e.subject_id); }}>Ouvrir le sujet</button>}
         <span className="grow" />
         <button className="btn" onClick={onClose}>Annuler</button>
@@ -130,6 +131,7 @@ function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: bo
       </>}
     >
       <form className="form" onSubmit={ev => { ev.preventDefault(); submit(); }}>
+        {fromOutlook && <p className="notice full">Synchronisé depuis ton agenda Outlook : modifie le nom, la date ou les heures dans Outlook. Le sujet choisi ici est conservé.</p>}
         <label className="full">Intitulé<input autoFocus value={e.name} onChange={ev => set({ name: ev.target.value })} /></label>
         <label>Date<input type="date" value={e.date} onChange={ev => set({ date: ev.target.value })} /></label>
         {features.eventTimes ? (

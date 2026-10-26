@@ -8,3 +8,7 @@ verify_jwt = true
 [functions.daily-reminder]
 # Appelée par pg_cron, sans session utilisateur : protégée par l'en-tête x-cron-secret.
 verify_jwt = false
+
+[functions.outlook-sync]
+# Appelée par pg_cron, sans session utilisateur : protégée par l’en-tête x-cron-secret.
+verify_jwt = false
