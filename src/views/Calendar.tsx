@@ -17,7 +17,8 @@ export function Calendar() {
   const [showTasks, setShowTasks] = useState(true);
   const today = todayIso();
   // Sur téléphone, toucher un jour le sélectionne (agenda du jour) au lieu d'ouvrir un formulaire.
-  const [selected, setSelected] = useState<string | null>(today);
+  // Sur ordinateur, l'agenda du jour ne s'affiche que quand on clique « +N ».
+  const [selected, setSelected] = useState<string | null>(() => (mobile ? today : null));
   const y = month.getFullYear();
   const m = month.getMonth();
   const start = (new Date(y, m, 1).getDay() + 6) % 7;
@@ -38,7 +39,8 @@ export function Calendar() {
   const agenda = (sel ? byDay.get(sel) ?? [] : items.filter(it => it.date.startsWith(monthPrefix)))
     .sort((a, b) => (a.date + a.sort).localeCompare(b.date + b.sort));
   const shift = (n: number) => { setMonth(new Date(y, m + n, 1)); setSelected(null); };
-  const goToday = () => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); setSelected(today); };
+  const goToday = () => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); setSelected(mobile ? today : null); };
+  const MAX = 3;
   const pickDay = (key: string) => (mobile ? setSelected(key) : editEvent(null, { date: key }));
 
   return (
@@ -46,7 +48,6 @@ export function Calendar() {
       <div className="page-head cal-head">
         <div>
           <h2 className="month-title">{month.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h2>
-          <p className="hint desktop-only">Clique un jour pour ajouter un événement · dates théoriques signalées dans leur intitulé</p>
         </div>
         <div className="cal-nav">
           <div className="cal-arrows">
@@ -55,7 +56,7 @@ export function Calendar() {
             <button className="icon-btn bordered" onClick={() => shift(1)} aria-label="Mois suivant"><ChevronRight size={18} /></button>
           </div>
           <label className="toggle"><input type="checkbox" checked={showTasks} onChange={e => setShowTasks(e.target.checked)} /> Échéances des actions</label>
-          <button className="btn primary desktop-only" onClick={() => editEvent(null, { date: today })}><CalendarPlus size={16} /> Événement</button>
+          <button className="btn desktop-only" onClick={() => editEvent(null, { date: today })}><CalendarPlus size={16} /> Événement</button>
         </div>
       </div>
 
@@ -71,7 +72,7 @@ export function Calendar() {
               tabIndex={0}
               aria-pressed={mobile ? sel === key : undefined}
               aria-label={`${longDay(key)}${list.length ? `, ${list.length} élément${list.length > 1 ? 's' : ''}` : ''}${mobile ? '' : ', ajouter un événement'}`}
-              className={`day ${d.getMonth() !== m ? 'other' : ''} ${key === today ? 'today' : ''} ${d.getDay() % 6 === 0 ? 'weekend' : ''} ${mobile && sel === key ? 'selected' : ''}`}
+              className={`day ${d.getMonth() !== m ? 'other' : ''} ${key === today ? 'today' : ''} ${d.getDay() % 6 === 0 ? 'weekend' : ''} ${sel === key ? 'selected' : ''}`}
               onClick={() => pickDay(key)}
               onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickDay(key); } }}
             >
@@ -83,29 +84,36 @@ export function Calendar() {
                     {list.length > 3 && <small>+{list.length - 3}</small>}
                   </span>
                 )
-              ) : list.map(it => (
-                <button
-                  key={it.key}
-                  className={`evt ${it.kind} ${it.done ? 'is-done' : ''}`}
-                  style={{ ['--c' as string]: it.color }}
-                  title={it.time ? `${it.time} · ${it.name}` : it.name}
-                  onClick={e => { e.stopPropagation(); it.open(); }}
-                >
-                  {it.kind === 'task' && <Check size={11} strokeWidth={3} />}
-                  {it.time && <b className="evt-time">{it.time.split('–')[0]}</b>}
-                  <span>{it.name}</span>
-                </button>
-              ))}
+              ) : <>
+                {list.slice(0, list.length > MAX ? MAX - 1 : MAX).map(it => (
+                  <button
+                    key={it.key}
+                    className={`evt ${it.kind} ${it.done ? 'is-done' : ''}`}
+                    style={{ ['--c' as string]: it.color }}
+                    title={it.time ? `${it.time} · ${it.name}` : it.name}
+                    onClick={e => { e.stopPropagation(); it.open(); }}
+                  >
+                    {it.kind === 'task' ? <Check size={11} strokeWidth={3} /> : <i className="evt-dot" />}
+                    {it.time && <b className="evt-time">{it.time.split('–')[0]}</b>}
+                    <span>{it.name}</span>
+                  </button>
+                ))}
+                {list.length > MAX && (
+                  <button className="evt-more" onClick={e => { e.stopPropagation(); setSelected(key); }}>
+                    +{list.length - (MAX - 1)} autres
+                  </button>
+                )}
+              </>}
             </div>
           );
         })}
       </div>
 
-      <section className="panel agenda" aria-live="polite">
+      <section className={`panel agenda ${sel ? 'show' : ''}`} aria-live="polite">
         <div className="panel-head">
           <h3>{sel ? <span className="cap">{longDay(sel)}</span> : 'Agenda du mois'}</h3>
           {sel
-            ? <button className="link" onClick={() => setSelected(null)}>Tout le mois</button>
+            ? <button className="link" onClick={() => setSelected(null)}>{mobile ? 'Tout le mois' : 'Fermer'}</button>
             : <span className="count">{agenda.length}</span>}
         </div>
         {agenda.length ? agenda.map(it => {
@@ -127,7 +135,10 @@ export function Calendar() {
         </button>
       </section>
 
-      <p className="hint foot-hint">Le 17 novembre (Moon) et le 1er décembre (Edison) sont des dates indicatives, non des dates contractuellement vérifiées. Les réunions mensuelles doivent être confrontées aux semaines de cours.</p>
+      <details className="hint foot-hint">
+        <summary>Notes sur les dates</summary>
+        Le 17 novembre (Moon) et le 1er décembre (Edison) sont des dates indicatives, non des dates contractuellement vérifiées. Les réunions mensuelles doivent être confrontées aux semaines de cours.
+      </details>
     </div>
   );
 }

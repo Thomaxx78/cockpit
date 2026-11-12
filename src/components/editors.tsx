@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Trash2 } from 'lucide-react';
 import { features } from '../lib/backend';
 import { newId, useStore } from '../lib/store';
-import { EVENT_KINDS, PALETTE, PRIORITIES, SUBJECT_STATUSES, TASK_STATUSES, type CalEvent, type Subject, type Task } from '../lib/types';
+import { EVENT_KINDS, PALETTE, PRIO_LABELS, PRIORITIES, SUBJECT_STATUSES, TASK_STATUSES, type CalEvent, type Subject, type Task } from '../lib/types';
 import { go } from '../lib/utils';
 import { Modal } from './ui';
 
@@ -94,11 +94,11 @@ function TaskEditor({ initial, isNew, onClose }: { initial: Task; isNew: boolean
     >
       <form className="form" onSubmit={e => { e.preventDefault(); submit(); }}>
         <label className="full">Action<input autoFocus value={t.name} onChange={e => set({ name: e.target.value })} placeholder="Ex. Relancer Dominique pour le bon de commande" /></label>
-        <label className="full">Sujet<SubjectSelect value={t.subject_id} onChange={v => set({ subject_id: v })} /></label>
-        <label>Statut<select value={t.status} onChange={e => set({ status: e.target.value })}>{TASK_STATUSES.map(s => <option key={s}>{s}</option>)}</select></label>
-        <label>Priorité<select value={t.priority} onChange={e => set({ priority: e.target.value })}>{PRIORITIES.map(p => <option key={p}>{p}</option>)}</select></label>
-        <label>Interlocuteur<input value={t.owner} onChange={e => set({ owner: e.target.value })} placeholder="À clarifier" /></label>
+        <label>Sujet<SubjectSelect value={t.subject_id} onChange={v => set({ subject_id: v })} /></label>
         <label>Échéance<input type="date" value={t.due_date ?? ''} onChange={e => set({ due_date: e.target.value || null })} /></label>
+        <label>Statut<select value={t.status} onChange={e => set({ status: e.target.value })}>{TASK_STATUSES.map(s => <option key={s}>{s}</option>)}</select></label>
+        <label>Priorité<select value={t.priority} onChange={e => set({ priority: e.target.value })}>{PRIORITIES.map(p => <option key={p} value={p}>{PRIO_LABELS[p]}</option>)}</select></label>
+        <label className="full">Interlocuteur<input value={t.owner} onChange={e => set({ owner: e.target.value })} placeholder="Ex. Fred" /></label>
         <button hidden />
       </form>
     </Modal>

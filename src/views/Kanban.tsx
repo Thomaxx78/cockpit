@@ -5,25 +5,25 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, Search, User, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { DueBadge } from '../components/TaskRow';
 import { Prio, SubjectTag } from '../components/ui';
 import { useStore } from '../lib/store';
 import { isActive, PRIORITIES, TASK_STATUSES, type Task } from '../lib/types';
-import { daysFrom, statusClass } from '../lib/utils';
+import { cleanOwner, daysFrom, statusClass } from '../lib/utils';
 
 type Cols = Record<string, string[]>;
 
 function Card({ t, overlay }: { t: Task; overlay?: boolean }) {
-  const { subject } = useStore();
+  const owner = cleanOwner(t.owner);
   return (
-    <div className={`kcard ${overlay ? 'overlay' : ''} ${t.status === 'Terminé' ? 'is-done' : ''}`} style={{ ['--c' as string]: subject(t.subject_id)?.color }}>
-      <div className="kcard-top"><SubjectTag id={t.subject_id} /><Prio p={t.priority} /></div>
-      <div className="kcard-name">{t.name}</div>
+    <div className={`kcard ${overlay ? 'overlay' : ''} ${t.status === 'Terminé' ? 'is-done' : ''}`}>
+      <div className="kcard-top"><div className="kcard-name">{t.name}</div><Prio p={t.priority} /></div>
       <div className="meta">
-        {t.owner && <span className="meta-item"><User size={12} /> {t.owner}</span>}
+        <SubjectTag id={t.subject_id} />
         <DueBadge date={t.due_date} done={!isActive(t.status)} />
+        {owner && <span className="meta-item meta-owner">{owner}</span>}
       </div>
     </div>
   );
@@ -170,8 +170,7 @@ export function Kanban() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h2>Avancement des actions</h2>
-          <p className="hint">Glisse les cartes entre colonnes. Le liseré de couleur indique le sujet.</p>
+          <h2>Kanban</h2>
         </div>
       </div>
       <div className="filters" role="search" aria-label="Filtrer le Kanban">

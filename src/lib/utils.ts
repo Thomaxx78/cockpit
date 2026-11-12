@@ -32,7 +32,13 @@ export const relative = (d: string) => {
   return `Dans ${Math.round(n / 30)} mois`;
 };
 
-export const statusClass = (s: string) =>
+/** Interlocuteur affichable : vide si « À clarifier », sans les mentions entre parenthèses. */
+export const cleanOwner = (o: string) => {
+  const v = o.replace(/\s*\(.*?\)/g, '').trim();
+  return /^(à clarifier|—|-)?$/i.test(v) ? '' : v;
+};
+
+export const statusClass =(s: string) =>
   ({ 'En cours': 'ongoing', 'À faire': 'todo', 'En attente': 'waiting', 'Terminé': 'done', 'À cadrer': 'scope', 'Backlog': 'backlog' } as Record<string, string>)[s] ?? 'neutral';
 
 export function download(blob: Blob, name: string) {

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { CalendarDays, ListChecks, Plus, Search, User } from 'lucide-react';
 import { useEditors } from '../components/editors';
-import { Empty, Pill } from '../components/ui';
+import { Dot, Empty, Pill } from '../components/ui';
 import { useStore } from '../lib/store';
 import { SUBJECT_STATUSES } from '../lib/types';
-import { fmtDate, go } from '../lib/utils';
+import { cleanOwner, fmtDate, go } from '../lib/utils';
 
 export function Subjects({ initialStatus }: { initialStatus?: string }) {
   const { db } = useStore();
@@ -24,10 +24,9 @@ export function Subjects({ initialStatus }: { initialStatus?: string }) {
     <div className="page">
       <div className="page-head">
         <div>
-          <h2>Portefeuille des sujets</h2>
-          <p className="hint">Dossiers IA, benchmarks, stratégie, rendez-vous et opérations.</p>
+          <h2>Sujets</h2>
         </div>
-        <button className="btn primary" onClick={newSubject}><Plus size={16} /> Nouveau sujet</button>
+        <button className="btn" onClick={newSubject}><Plus size={16} /> Nouveau sujet</button>
       </div>
 
       <div className="toolbar">
@@ -41,19 +40,20 @@ export function Subjects({ initialStatus }: { initialStatus?: string }) {
           {items.map(s => {
             const ts = db.tasks.filter(t => t.subject_id === s.id);
             const done = ts.filter(t => t.status === 'Terminé').length;
+            const person = cleanOwner(s.people.split(';')[0] ?? '');
             return (
               <button key={s.id} className="card" style={{ ['--c' as string]: s.color }} onClick={() => go('sujets/' + s.id)}>
                 <span className="card-top">
-                  <span className="category">{s.category || 'Sans catégorie'}</span>
+                  <span className="category"><Dot color={s.color} size={8} />{s.category}</span>
                   <Pill status={s.status} />
                 </span>
                 <span className="card-title">{s.name}</span>
-                <span className="card-text">{s.summary}</span>
+                {s.summary && <span className="card-text">{s.summary}</span>}
                 {ts.length > 0 && <span className="progress"><span style={{ width: `${(done / ts.length) * 100}%` }} /></span>}
                 <span className="card-foot">
-                  <span className="meta-item"><User size={12} /> {s.people.split(';')[0] || '—'}</span>
-                  <span className="meta-item"><ListChecks size={12} /> {done}/{ts.length}</span>
-                  <span className="meta-item"><CalendarDays size={12} /> {fmtDate(s.due_date, 'À clarifier')}</span>
+                  {ts.length > 0 && <span className="meta-item" title="Actions terminées"><ListChecks size={12} /> {done}/{ts.length}</span>}
+                  {s.due_date && <span className="meta-item"><CalendarDays size={12} /> {fmtDate(s.due_date)}</span>}
+                  {person && <span className="meta-item"><User size={12} /> {person}</span>}
                 </span>
               </button>
             );

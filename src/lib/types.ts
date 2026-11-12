@@ -46,5 +46,6 @@ export const TASK_STATUSES = ['Backlog', 'À faire', 'En cours', 'En attente', '
 export const isActive = (status: string) => status !== 'Terminé' && status !== 'Backlog';
 export const SUBJECT_STATUSES = ['À cadrer', 'À faire', 'En cours', 'En attente', 'Terminé'] as const;
 export const PRIORITIES = ['P1', 'P2', 'P3'] as const;
+export const PRIO_LABELS: Record<string, string> = { P1: 'P1 — Urgent', P2: 'P2 — Normal', P3: 'P3 — Plus tard' };
 export const EVENT_KINDS = ['Événement', 'Action', 'Échéance', 'Hypothèse', 'Récurrence théorique', 'Rendez-vous'];
-export const PALETTE = ['#8b5cf6', '#2563eb', '#0d9488', '#ea580c', '#db2777', '#64748b', '#0891b2', '#65a30d', '#a16207', '#dc2626', '#4f46e5', '#059669'];
+export const PALETTE = ['#8b5cf6', '#2563eb', '#0d9488', '#0369a1', '#db2777', '#64748b', '#0891b2', '#65a30d', '#a16207', '#7c3aed', '#4f46e5', '#059669'];

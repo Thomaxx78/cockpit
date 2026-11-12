@@ -8,8 +8,8 @@ import { SUBJECT_STATUSES, type Subject } from '../lib/types';
 import { dayMonth, go, relative, statusClass, timeRange } from '../lib/utils';
 
 /** Champ éditable sur place, sauvegardé automatiquement (pause de frappe ou sortie du champ). */
-function Inline({ value, onSave, placeholder, className, multiline = true, label }: {
-  value: string; onSave: (v: string) => void; placeholder?: string; className?: string; multiline?: boolean; label?: string;
+function Inline({ value, onSave, placeholder, className, multiline = true, label, autoFocus }: {
+  value: string; onSave: (v: string) => void; placeholder?: string; className?: string; multiline?: boolean; label?: string; autoFocus?: boolean;
 }) {
   const [draft, setDraft] = useState(value);
   const focused = useRef(false);
@@ -28,6 +28,7 @@ function Inline({ value, onSave, placeholder, className, multiline = true, label
     value: draft,
     placeholder,
     'aria-label': label ?? placeholder,
+    autoFocus,
     onFocus: () => { focused.current = true; },
     onBlur: () => { focused.current = false; flush(draft); },
   };
@@ -44,6 +45,7 @@ export function SubjectDetail({ id }: { id: string }) {
   latest.current = s;
   const [quick, setQuick] = useState('');
   const [showColors, setShowColors] = useState(false);
+  const [opened, setOpened] = useState<(keyof Subject)[]>([]);
 
   if (!s) return <div className="page"><Empty>Ce sujet n'existe plus. <button className="link" onClick={() => go('sujets')}>Retour aux sujets</button></Empty></div>;
 
@@ -64,8 +66,9 @@ export function SubjectDetail({ id }: { id: string }) {
     ['confirmed', 'Confirmé', 'Ce qui est acquis…'],
     ['hypothesis', 'Hypothèses', 'Ce qui reste supposé…'],
     ['questions', 'À clarifier', 'Questions ouvertes…'],
-    ['next_step', 'Prochaine étape', 'Prochaine étape concrète…'],
   ];
+  // Un bloc vide est replié en simple lien « + Ajouter » tant qu'on ne l'ouvre pas.
+  const shown = (k: keyof Subject) => !!String(s[k] ?? '').trim() || opened.includes(k);
 
   return (
     <div className="page" style={{ ['--c' as string]: s.color }}>
@@ -85,9 +88,13 @@ export function SubjectDetail({ id }: { id: string }) {
         <Inline className="title-input" value={s.name} onSave={v => v.trim() && set({ name: v.trim() })} placeholder="Nom du sujet" />
         <Inline className="summary-input" value={s.summary} onSave={v => set({ summary: v })} placeholder="Résumé du sujet…" />
         <div className="hero-meta">
-          <span>Origine : <Inline className="meta-input" multiline={false} value={s.origin} onSave={v => set({ origin: v })} placeholder="—" label="Origine" /></span>
           <span>Échéance : <input type="date" aria-label="Échéance du sujet" className="inline meta-input" value={s.due_date ?? ''} onChange={e => set({ due_date: e.target.value || null })} /></span>
-          {tasks.length > 0 && <span>{done}/{tasks.length} actions terminées</span>}
+          {tasks.length > 0 && (
+            <span className="hero-progress" title={`${done}/${tasks.length} actions terminées`}>
+              <span className="progress"><span style={{ width: `${(done / tasks.length) * 100}%` }} /></span>
+              {done}/{tasks.length}
+            </span>
+          )}
           <span className="autosave">{saving ? 'Enregistrement…' : <><Check size={13} /> Enregistré</>}</span>
         </div>
       </section>
@@ -95,33 +102,50 @@ export function SubjectDetail({ id }: { id: string }) {
       <div className="grid-2 detail">
         <div className="col">
           <section className="panel">
-            <h3>Contexte & cadrage</h3>
-            {blocks.map(([k, label, ph]) => (
-              <div key={k} className="fact">
-                <h4>{label}</h4>
-                <Inline value={String(s[k] ?? '')} onSave={v => set({ [k]: v })} placeholder={ph} label={label} />
-              </div>
-            ))}
-          </section>
-          <section className="panel">
-            <h3>Notes complémentaires</h3>
-            <Inline className="notes" value={s.notes} label="Notes complémentaires" onSave={v => set({ notes: v })} placeholder="Saisir les informations apprises lors des prochains échanges…" />
-          </section>
-        </div>
-
-        <div className="col">
-          <section className="panel">
-            <h3>Interlocuteurs</h3>
-            <Inline value={s.people} onSave={v => set({ people: v })} placeholder="Noms, rôles…" label="Interlocuteurs" />
-          </section>
-
-          <section className="panel">
-            <div className="panel-head"><h3>Actions liées</h3><span className="count">{tasks.length}</span></div>
+            <div className="panel-head"><h3>Actions</h3><span className="count">{tasks.length}</span></div>
             {tasks.map(t => <TaskRow key={t.id} t={t} showSubject={false} />)}
             <div className="quick-add">
               <Plus size={16} />
               <input value={quick} onChange={e => setQuick(e.target.value)} onKeyDown={e => e.key === 'Enter' && addQuick()} placeholder="Ajouter une action puis Entrée" />
             </div>
+          </section>
+
+          <section className="panel">
+            <h3>Contexte & cadrage</h3>
+            {blocks.filter(([k]) => shown(k)).map(([k, label, ph]) => (
+              <div key={k} className="fact">
+                <h4>{label}</h4>
+                <Inline value={String(s[k] ?? '')} onSave={v => set({ [k]: v })} placeholder={ph} label={label} autoFocus={opened.includes(k)} />
+              </div>
+            ))}
+            {blocks.some(([k]) => !shown(k)) && (
+              <div className="fact-add">
+                {blocks.filter(([k]) => !shown(k)).map(([k, label]) => (
+                  <button key={k} className="link" onClick={() => setOpened(o => [...o, k])}><Plus size={13} /> {label}</button>
+                ))}
+              </div>
+            )}
+            <div className="fact origin">
+              <span>Origine :</span>
+              <Inline className="meta-input" multiline={false} value={s.origin} onSave={v => set({ origin: v })} placeholder="—" label="Origine" />
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>Notes</h3>
+            <Inline className="notes" value={s.notes} label="Notes" onSave={v => set({ notes: v })} placeholder="Informations apprises lors des échanges…" />
+          </section>
+        </div>
+
+        <div className="col">
+          <section className="panel next-step">
+            <h3>Prochaine étape</h3>
+            <Inline value={s.next_step} onSave={v => set({ next_step: v })} placeholder="Prochaine étape concrète…" label="Prochaine étape" />
+          </section>
+
+          <section className="panel">
+            <h3>Interlocuteurs</h3>
+            <Inline value={s.people} onSave={v => set({ people: v })} placeholder="Noms, rôles…" label="Interlocuteurs" />
           </section>
 
           <section className="panel">
@@ -136,20 +160,20 @@ export function SubjectDetail({ id }: { id: string }) {
                   <span className="datebox"><b>{d.day}</b><small>{d.month}</small></span>
                   <span className="subject-row-main">
                     <span className="row-title">{e.name}</span>
-                    <span className="meta">{e.start_time && `${timeRange(e.start_time, e.end_time)} · `}{e.kind} · {relative(e.date)}</span>
+                    <span className="meta">{[e.start_time && timeRange(e.start_time, e.end_time), relative(e.date), /Échéance|Hypothèse/.test(e.kind) && e.kind].filter(Boolean).join(' · ')}</span>
                   </span>
                 </button>
               );
             }) : <p className="hint">Aucune date liée.</p>}
           </section>
-
-          <button className="btn danger ghost" onClick={() => {
-            if (confirm(`Supprimer le sujet « ${s.name} » ?\nSes actions et événements sont conservés (sans sujet).`)) {
-              deleteSubject(id); toast('Sujet supprimé'); go('sujets');
-            }
-          }}><Trash2 size={15} /> Supprimer ce sujet</button>
         </div>
       </div>
+
+      <button className="btn danger ghost delete-subject" onClick={() => {
+        if (confirm(`Supprimer le sujet « ${s.name} » ?\nSes actions et événements sont conservés (sans sujet).`)) {
+          deleteSubject(id); toast('Sujet supprimé'); go('sujets');
+        }
+      }}><Trash2 size={15} /> Supprimer ce sujet</button>
     </div>
   );
 }

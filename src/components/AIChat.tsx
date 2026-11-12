@@ -80,6 +80,7 @@ export function AIChat() {
 
   // Sur téléphone, le bouton s'efface quand on descend dans la page et revient quand on remonte.
   const [tucked, setTucked] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
   useEffect(() => {
     let last = scrollY;
     const on = () => {
@@ -213,7 +214,7 @@ export function AIChat() {
             <span className="ai-avatar"><Sparkles size={17} /></span>
             <div className="ai-title">
               <b>Assistant</b>
-              <small>{available ? (model ? `Groq · ${model.replace(/^.*\//, '')}` : 'Agit directement sur tes données') : 'Indisponible en mode local'}</small>
+              <small title={model ? `Groq · ${model.replace(/^.*\//, '')}` : undefined}>{available ? 'Agit sur tes données' : 'Indisponible en mode local'}</small>
             </div>
             <button className="icon-btn" onClick={clear} disabled={!msgs.length || !!busy} title="Vider la conversation" aria-label="Vider la conversation"><Trash2 size={16} /></button>
             <button className="icon-btn" onClick={() => setOpen(false)} title="Fermer (Échap)" aria-label="Fermer"><X size={18} /></button>
@@ -230,7 +231,7 @@ export function AIChat() {
               <div className="ai-empty">
                 <span className="ai-avatar big"><Sparkles size={24} /></span>
                 <p><b>Que veux-tu faire ?</b></p>
-                <p className="hint">Je peux créer, modifier, déplacer ou retrouver tes actions, sujets et événements. Les suppressions et changements groupés te sont toujours soumis avant d’être appliqués.</p>
+                <p className="hint">Je crée, modifie ou retrouve tes actions. Je te demande confirmation avant les suppressions.</p>
                 <div className="ai-suggest wrap">
                   {SUGGESTIONS.map(s => (
                     <button key={s.label} onClick={() => (s.send === false ? (setInput(s.prompt), inputRef.current?.focus()) : send(s.prompt))}>{s.label}</button>
@@ -289,6 +290,11 @@ export function AIChat() {
 
           <footer className="ai-foot">
             {available && msgs.length > 0 && (
+              <button type="button" className="ai-suggest-toggle" aria-expanded={showSuggest} onClick={() => setShowSuggest(v => !v)}>
+                {showSuggest ? 'Masquer les suggestions' : 'Suggestions'}
+              </button>
+            )}
+            {available && msgs.length > 0 && showSuggest && (
               <div className="ai-suggest">
                 {SUGGESTIONS.map(s => (
                   <button key={s.label} disabled={!!busy} onClick={() => (s.send === false ? (setInput(s.prompt), inputRef.current?.focus()) : send(s.prompt))}>{s.label}</button>

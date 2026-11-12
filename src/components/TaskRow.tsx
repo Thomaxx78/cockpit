@@ -1,29 +1,30 @@
-import { Check, CalendarDays, User } from 'lucide-react';
+import { Check, CalendarDays } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { isActive, type Task } from '../lib/types';
-import { daysFrom, fmtShort, relative } from '../lib/utils';
+import { cleanOwner, daysFrom, fmtDate, fmtShort, relative } from '../lib/utils';
 import { useEditors } from './editors';
 import { Pill, Prio, SubjectTag } from './ui';
 
+/** Échéance : relative quand elle est proche ou passée, sinon la date courte. */
 export function DueBadge({ date, done }: { date: string | null; done?: boolean }) {
   if (!date) return null;
   const n = daysFrom(date);
   const tone = done ? '' : n < 0 ? 'late' : n <= 3 ? 'soon' : '';
   return (
-    <span className={`due ${tone}`} title={fmtShort(date)}>
-      <CalendarDays size={12} /> {fmtShort(date)} · {relative(date)}
+    <span className={`due ${tone}`} title={fmtDate(date)}>
+      <CalendarDays size={12} /> {!done && n < 7 ? relative(date) : fmtShort(date)}
     </span>
   );
 }
 
 export function TaskRow({ t, showSubject = true, showStatus = false }: { t: Task; showSubject?: boolean; showStatus?: boolean }) {
-  const { saveTask, subject, toast } = useStore();
+  const { saveTask, toast } = useStore();
   const { editTask } = useEditors();
   const done = t.status === 'Terminé';
+  const owner = cleanOwner(t.owner);
   return (
     <div
       className={`task-row ${done ? 'is-done' : ''}`}
-      style={{ ['--c' as string]: subject(t.subject_id)?.color }}
       role="button"
       tabIndex={0}
       aria-label={`${t.name}, ${t.priority}, ${t.status}. Modifier`}
@@ -45,8 +46,8 @@ export function TaskRow({ t, showSubject = true, showStatus = false }: { t: Task
         <div className="task-name">{t.name}</div>
         <div className="meta">
           {showSubject && <SubjectTag id={t.subject_id} />}
-          {t.owner && <span className="meta-item"><User size={12} /> {t.owner}</span>}
           <DueBadge date={t.due_date} done={!isActive(t.status)} />
+          {owner && <span className="meta-item meta-owner">{owner}</span>}
         </div>
       </div>
       {showStatus && <Pill status={t.status} />}

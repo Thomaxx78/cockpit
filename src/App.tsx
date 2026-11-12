@@ -10,7 +10,7 @@ import { Palette } from './components/Palette';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
 import { isActive } from './lib/types';
-import { download, useRoute } from './lib/utils';
+import { download, todayIso, useRoute } from './lib/utils';
 import { Actions } from './views/Actions';
 import { Calendar } from './views/Calendar';
 import { Dashboard } from './views/Dashboard';
@@ -19,11 +19,11 @@ import { SubjectDetail } from './views/SubjectDetail';
 import { Subjects } from './views/Subjects';
 
 const NAV = [
-  ['', 'Vue d’ensemble', LayoutDashboard],
-  ['sujets', 'Sujets', FolderOpen],
-  ['kanban', 'Kanban', Columns3],
-  ['calendrier', 'Calendrier', CalendarDays],
-  ['actions', 'Actions', ListChecks],
+  ['', 'Vue d’ensemble', LayoutDashboard, 'Accueil'],
+  ['sujets', 'Sujets', FolderOpen, 'Sujets'],
+  ['kanban', 'Kanban', Columns3, 'Kanban'],
+  ['calendrier', 'Calendrier', CalendarDays, 'Agenda'],
+  ['actions', 'Actions', ListChecks, 'Actions'],
 ] as const;
 
 export function App({ email }: { email: string | null }) {
@@ -84,6 +84,13 @@ export function App({ email }: { email: string | null }) {
     : saveError ? <span className="sync err"><AlertCircle size={14} /> Erreur de sauvegarde</span>
     : saving ? <span className="sync busy"><Cloud size={14} /> Enregistrement…</span>
     : <span className="sync ok"><Check size={14} /> Synchronisé</span>;
+  // Barre du haut : rien de coloré quand tout va bien, une simple coche grise.
+  const syncCompact = backendKind === 'supabase' && !saveError && !saving
+    ? <span className="sync ok compact" title="Synchronisé" aria-label="Synchronisé"><Check size={15} /></span>
+    : sync;
+  const today = todayIso();
+  const openTasks = db.tasks.filter(t => isActive(t.status));
+  const lateCount = openTasks.filter(t => t.due_date && t.due_date < today).length;
 
   return (
     <div className="app">
@@ -96,13 +103,13 @@ export function App({ email }: { email: string | null }) {
           {NAV.map(([path, label, Icon]) => (
             <a key={path} href={'#/' + path} className={`nav ${page === path ? 'active' : ''}`} title={label} aria-current={page === path ? 'page' : undefined}>
               <Icon size={18} /><span>{label}</span>
-              {path === 'actions' && <span className="nav-count">{db.tasks.filter(t => isActive(t.status)).length}</span>}
+              {path === 'actions' && <span className={`nav-count ${lateCount ? 'late' : ''}`} title={lateCount ? `${lateCount} en retard` : undefined}>{openTasks.length}</span>}
             </a>
           ))}
         </nav>
         <div className="side-subjects">
           <div className="side-title">Sujets</div>
-          {db.subjects.map(s => (
+          {db.subjects.filter(s => s.status !== 'Terminé' || parts[1] === s.id).map(s => (
             <a key={s.id} href={'#/sujets/' + s.id} className={`side-subject ${parts[1] === s.id ? 'active' : ''}`}>
               <span className="dot" style={{ background: s.color }} /><span>{s.name}</span>
             </a>
@@ -126,20 +133,16 @@ export function App({ email }: { email: string | null }) {
             <Search size={16} /> <span>Rechercher…</span> <kbd>Ctrl K</kbd>
           </button>
           <div className="top-actions">
-            <span className="desktop-only">{sync}</span>
-            <button className="icon-btn bordered desktop-only" title="Exporter (JSON)" aria-label="Exporter une sauvegarde" onClick={exportJSON}><Download size={17} /></button>
-            <button className="icon-btn bordered desktop-only" title="Importer une sauvegarde (ancien ou nouveau cockpit)" aria-label="Importer une sauvegarde" onClick={() => fileRef.current?.click()}><Upload size={17} /></button>
+            <span className="desktop-only">{syncCompact}</span>
             <input ref={fileRef} type="file" accept="application/json" hidden onChange={e => importFile(e.target.files?.[0])} />
-            <span className="mobile-only">
-              <MoreMenu
-                status={sync}
-                items={[
-                  { icon: <Download size={17} />, label: 'Exporter', hint: 'Sauvegarde JSON', run: exportJSON },
-                  { icon: <Upload size={17} />, label: 'Importer', hint: 'Fusionner une sauvegarde', run: () => fileRef.current?.click() },
-                  ...(email ? [{ icon: <LogOut size={17} />, label: 'Verrouiller', hint: 'Se déconnecter', run: () => { signOut(); }, danger: true }] : []),
-                ]}
-              />
-            </span>
+            <MoreMenu
+              status={sync}
+              items={[
+                { icon: <Download size={17} />, label: 'Exporter', hint: 'Sauvegarde JSON', run: exportJSON },
+                { icon: <Upload size={17} />, label: 'Importer', hint: 'Fusionner une sauvegarde', run: () => fileRef.current?.click() },
+                ...(email ? [{ icon: <LogOut size={17} />, label: 'Verrouiller', hint: 'Se déconnecter', run: () => { signOut(); }, danger: true }] : []),
+              ]}
+            />
             <NewMenu subjectId={currentSubject} />
           </div>
         </header>
@@ -155,9 +158,9 @@ export function App({ email }: { email: string | null }) {
       </div>
 
       <nav className="tabbar" aria-label="Navigation principale">
-        {NAV.map(([path, label, Icon]) => (
+        {NAV.map(([path, , Icon, short]) => (
           <a key={path} href={'#/' + path} className={page === path ? 'active' : ''} aria-current={page === path ? 'page' : undefined}>
-            <span className="tab-ico"><Icon size={21} /></span><span>{label.split(' ')[0]}</span>
+            <span className="tab-ico"><Icon size={21} /></span><span>{short}</span>
           </a>
         ))}
       </nav>
