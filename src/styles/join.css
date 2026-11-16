@@ -1,0 +1,41 @@
+/* Carte « Prochaine réunion » de la vue d'ensemble (bouton « Rejoindre »).
+   Uniquement des variables du thème : correct en clair comme en sombre. */
+
+.join-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; border-radius: 14px;
+  border-left: 3px solid var(--brand);
+}
+.join-card.live { border-left-color: var(--red); }
+
+.join-main {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;
+  text-align: left; background: none; border: 0; padding: 0; color: var(--ink); cursor: pointer; font: inherit;
+}
+.join-main:hover .join-title { color: var(--brand); }
+
+.join-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.join-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.join-state {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  font-size: var(--fs-sm, 13px); font-weight: 600; color: var(--brand);
+}
+.join-card.live .join-state { color: var(--red); }
+.join-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: join-pulse 1.6s ease-in-out infinite; }
+@keyframes join-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .join-pulse { animation: none; } }
+
+.join-title {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  font-size: var(--fs-lg, 16px); font-weight: 700; transition: color .15s;
+}
+.join-title > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.join-main .meta { color: var(--muted); }
+
+.join-btn { flex-shrink: 0; text-decoration: none; font-weight: 600; padding: 8px 14px; }
+
+@media (max-width: 700px) {
+  .join-card { flex-direction: column; align-items: stretch; gap: 12px; }
+  .join-title > span:last-child { white-space: normal; }
+  .join-btn { width: 100%; justify-content: center; min-height: 44px; }
+}

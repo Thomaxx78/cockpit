@@ -85,3 +85,18 @@ export function useMedia(query: string) {
   return match;
 }
 export const MOBILE = '(max-width: 700px)';
+
+export type MeetingLink = { url: string; provider: 'Teams' | 'Zoom' | 'Meet' };
+/** Premier lien de visio (Teams, Zoom, Google Meet) trouvé dans une description de réunion. */
+export function meetingLink(description?: string | null): MeetingLink | null {
+  const m = (description ?? '').match(
+    /https:\/\/(?:teams\.microsoft\.com\/(?:l\/meetup-join|meet)\/|(?:[\w-]+\.)*zoom\.us\/j\/|meet\.google\.com\/[a-z]{3}-)[^\s<>"'()[\]]+/i,
+  );
+  if (!m) return null;
+  const url = m[0].replace(/[.,;:!?]+$/, '');
+  const provider = /teams\./i.test(url) ? 'Teams' : /zoom\.us/i.test(url) ? 'Zoom' : 'Meet';
+  return { url, provider };
+}
+
+/** "14:30" → minutes depuis minuit. */
+export const toMinutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };

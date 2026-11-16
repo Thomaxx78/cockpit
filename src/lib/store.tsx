@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { backend, clean } from './backend';
-import type { CalEvent, DB, Subject, Table, Task } from './types';
+import { ACTIVITY_LIMIT, backend, clean } from './backend';
+import type { Activity, CalEvent, DB, Subject, Table, Task } from './types';
 import { SEED } from './seed';
 
 type Toast = { id: number; text: string; tone?: 'error' };
 
 type Store = {
   db: DB;
+  /** Historique des 120 derniers jours, du plus récent au plus ancien (vide tant que la table n'existe pas). */
+  activity: Activity[];
   ready: boolean;
   loadError: string | null;
   saving: number;
@@ -26,6 +28,9 @@ type Store = {
   toasts: Toast[];
 };
 
+/** Profondeur de l'historique chargé. */
+const ACTIVITY_DAYS = 120;
+
 const Ctx = createContext<Store | null>(null);
 export const useStore = () => useContext(Ctx)!;
 
@@ -42,6 +47,7 @@ const upsertIn = <T extends { id: string }>(list: T[], row: T) => {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<DB>({ subjects: [], tasks: [], events: [] });
+  const [activity, setActivity] = useState<Activity[]>([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(0);
@@ -56,6 +62,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reload = useCallback(async () => {
+    // Historique chargé à part : son absence ne bloque jamais l'appli.
+    backend.loadActivity(new Date(Date.now() - ACTIVITY_DAYS * 86400000).toISOString()).then(setActivity);
     try {
       setDb(await backend.load());
       setLoadError(null);
@@ -68,12 +76,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     reload();
-    return backend.subscribe(({ table, type, row }) => {
+    const offData = backend.subscribe(({ table, type, row }) => {
       setDb(d => ({
         ...d,
         [table]: type === 'delete' ? (d[table] as { id: string }[]).filter(x => x.id !== row.id) : upsertIn(d[table] as { id: string }[], row),
       }));
     });
+    const offActivity = backend.subscribeActivity(a =>
+      setActivity(list => (list.some(x => x.id === a.id) ? list : [a, ...list].slice(0, ACTIVITY_LIMIT))));
+    return () => { offData(); offActivity(); };
   }, [reload]);
 
   /** Exécute une écriture distante ; l'état local est déjà à jour (optimiste). */
@@ -108,7 +119,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [persist]);
 
   const store = useMemo<Store>(() => ({
-    db, ready, loadError, saving, saveError, toasts, toast, reload,
+    db, activity, ready, loadError, saving, saveError, toasts, toast, reload,
     backendKind: backend.kind,
     subject: id => (id ? db.subjects.find(s => s.id === id) : undefined),
     saveSubject: s => write('subjects', s),
@@ -136,7 +147,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSaving(n => n - 1);
       }
     },
-  }), [db, ready, loadError, saving, saveError, toasts, toast, reload, write, remove]);
+  }), [db, activity, ready, loadError, saving, saveError, toasts, toast, reload, write, remove]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

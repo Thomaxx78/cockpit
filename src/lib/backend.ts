@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { DB, Row, Table } from './types';
+import type { Activity, DB, Row, Table } from './types';
 import { SEED } from './seed';
 
 export type Change = { table: Table; type: 'upsert' | 'delete'; row: { id: string } & Record<string, unknown> };
@@ -10,7 +10,26 @@ export interface Backend {
   upsert<T extends Table>(table: T, rows: Row<T>[]): Promise<void>;
   remove(table: Table, id: string): Promise<void>;
   subscribe(cb: (c: Change) => void): () => void;
+  /** Historique depuis la date donnée (ISO), du plus récent au plus ancien. Jamais d'erreur : [] si indisponible. */
+  loadActivity(sinceIso: string): Promise<Activity[]>;
+  /** Nouvelles entrées d'historique (temps réel en Supabase, écritures locales sinon). */
+  subscribeActivity(cb: (a: Activity) => void): () => void;
 }
+
+/** Nombre maximal d'entrées d'historique chargées / conservées. */
+export const ACTIVITY_LIMIT = 2000;
+
+const toActivity = (r: Record<string, unknown>): Activity => ({
+  id: Number(r.id),
+  at: String(r.at),
+  entity: r.entity as Activity['entity'],
+  entity_id: String(r.entity_id ?? ''),
+  subject_id: (r.subject_id as string | null) ?? null,
+  kind: r.kind as Activity['kind'],
+  label: String(r.label ?? ''),
+  from_status: (r.from_status as string | null) ?? null,
+  to_status: (r.to_status as string | null) ?? null,
+});
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -96,6 +115,23 @@ function supabaseBackend(sb: SupabaseClient): Backend {
       ch.subscribe();
       return () => { sb.removeChannel(ch); };
     },
+    async loadActivity(sinceIso) {
+      try {
+        const { data, error } = await sb.from('activity').select('*').gte('at', sinceIso).order('at', { ascending: false }).limit(ACTIVITY_LIMIT);
+        // Table absente tant que supabase/schema.sql n'a pas été relancé : l'appli continue sans historique.
+        if (error) { console.warn('Historique indisponible :', error.message); return []; }
+        return (data ?? []).map(toActivity);
+      } catch {
+        return [];
+      }
+    },
+    subscribeActivity(cb) {
+      // Canal séparé : une table absente ne gêne pas la synchronisation principale.
+      const ch = sb.channel('cockpit-activity');
+      ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity' }, p => cb(toActivity(p.new)));
+      ch.subscribe();
+      return () => { sb.removeChannel(ch); };
+    },
   };
 }
 
@@ -112,6 +148,37 @@ function localBackend(): Backend {
   const write = (db: DB) => {
     try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { /* stockage indisponible */ }
   };
+
+  // Historique : même logique que les triggers SQL (création, changement de statut, suppression),
+  // en comparant avec l'état enregistré avant l'écriture.
+  const ACT_KEY = 'sapaudia-cockpit-activity';
+  const listeners = new Set<(a: Activity) => void>();
+  const readAct = (): Activity[] => {
+    try {
+      const v = JSON.parse(localStorage.getItem(ACT_KEY) || '[]');
+      return Array.isArray(v) ? v : [];
+    } catch { return []; }
+  };
+  type Entry = Omit<Activity, 'id' | 'at'>;
+  const log = (entries: Entry[]) => {
+    if (!entries.length) return;
+    const list = readAct();
+    let id = list.reduce((m, a) => Math.max(m, a.id), 0);
+    const at = new Date().toISOString();
+    const added = entries.map(e => ({ ...e, id: ++id, at }));
+    // Stocké du plus récent au plus ancien, plafonné.
+    try { localStorage.setItem(ACT_KEY, JSON.stringify([...added.slice().reverse(), ...list].slice(0, ACTIVITY_LIMIT))); } catch { /* stockage indisponible */ }
+    for (const a of added) listeners.forEach(cb => cb(a));
+  };
+  const entry = (table: Table, row: Record<string, unknown>, kind: Activity['kind'], from: unknown, to: unknown): Entry => ({
+    entity: table === 'tasks' ? 'task' : 'subject',
+    entity_id: String(row.id),
+    subject_id: table === 'tasks' ? ((row.subject_id as string | null) ?? null) : String(row.id),
+    kind,
+    label: String(row.name ?? ''),
+    from_status: (from as string | null) ?? null,
+    to_status: (to as string | null) ?? null,
+  });
   return {
     kind: 'local',
     async load() {
@@ -122,22 +189,39 @@ function localBackend(): Backend {
     async upsert(table, rows) {
       const db = read();
       const list = db[table] as Row<typeof table>[];
+      const acts: Entry[] = [];
       for (const r of rows) {
         const i = list.findIndex(x => x.id === r.id);
+        if (table !== 'events') {
+          const next = r as Record<string, unknown>;
+          const prev = i >= 0 ? (list[i] as Record<string, unknown>) : null;
+          if (!prev) acts.push(entry(table, next, 'created', null, next.status));
+          else if (prev.status !== next.status) acts.push(entry(table, next, 'status', prev.status, next.status));
+        }
         if (i >= 0) list[i] = r; else list.push(r);
       }
       write(db);
+      log(acts);
     },
     async remove(table, id) {
       const db = read();
+      const old = (db[table] as Record<string, unknown>[]).find(x => x.id === id);
       (db[table] as { id: string }[]) = db[table].filter(x => x.id !== id);
       if (table === 'subjects') {
         db.tasks.forEach(t => { if (t.subject_id === id) t.subject_id = null; });
         db.events.forEach(e => { if (e.subject_id === id) e.subject_id = null; });
       }
       write(db);
+      if (old && table !== 'events') log([entry(table, old, 'deleted', old.status, null)]);
     },
     subscribe() { return () => {}; },
+    async loadActivity(sinceIso) {
+      return readAct().filter(a => a.at >= sinceIso).slice(0, ACTIVITY_LIMIT);
+    },
+    subscribeActivity(cb) {
+      listeners.add(cb);
+      return () => { listeners.delete(cb); };
+    },
   };
 }
 

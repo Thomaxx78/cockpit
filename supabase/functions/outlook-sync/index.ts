@@ -8,7 +8,7 @@
 
 import ICAL from 'npm:ical.js@2.2.1';
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
-import { OUTLOOK_PREFIX, parseOutlook, planSync, type ExistingEvent } from './sync.ts';
+import { OUTLOOK_PREFIX, parseOutlook, planSync, type ExistingEvent, type SubjectRef } from './sync.ts';
 
 const env = (k: string) => Deno.env.get(k) || undefined;
 const json = (status: number, body: unknown) =>
@@ -58,7 +58,7 @@ Deno.serve(async req => {
   }
 
   const sb = createClient(env('SUPABASE_URL')!, env('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-  const BASE = 'id,date,name,kind,start_time,end_time';
+  const BASE = 'id,date,name,kind,start_time,end_time,subject_id';
   let withDescription = true;
   let { data: existing, error } = await sb.from('events').select(BASE + ',description').gte('date', from);
   if (error && /description/.test(error.message)) {
@@ -68,17 +68,25 @@ Deno.serve(async req => {
   }
   if (error) return json(500, { error: 'lecture du calendrier impossible', detail: error.message });
 
-  const plan = planSync(occurrences, existing as ExistingEvent[], from, { withDescription });
+  // Sujets pour le rattachement automatique (non bloquant : en cas d'erreur, on synchronise sans).
+  const { data: subjects } = await sb.from('subjects').select('id,name,category,status');
+
+  const plan = planSync(occurrences, existing as ExistingEvent[], from, { withDescription, subjects: (subjects ?? []) as SubjectRef[] });
   if (body.dry_run) return json(200, { dry_run: true, from, to, with_description: withDescription, ...plan });
 
-  // 3. Écritures minimales (le sujet éventuellement choisi dans le Cockpit n'est pas dans la charge utile)
-  if (plan.upserts.length) {
-    const { error: e1 } = await sb.from('events').upsert(plan.upserts);
+  // 3. Écritures minimales. `subject_id` n'est envoyé que pour une réunion nouvelle ou encore sans sujet :
+  //    un sujet choisi dans le Cockpit n'est jamais dans la charge utile, donc jamais écrasé.
+  //    En lot, supabase-js prend l'union des colonnes et met NULL aux champs absents : les lignes avec et sans
+  //    `subject_id` sont donc envoyées séparément, sinon les sujets manuels seraient effacés.
+  const batches = [plan.upserts.filter(r => r.subject_id === undefined), plan.upserts.filter(r => r.subject_id !== undefined)];
+  for (const rows of batches) {
+    if (!rows.length) continue;
+    const { error: e1 } = await sb.from('events').upsert(rows);
     if (e1) return json(500, { error: 'écriture impossible', detail: e1.message });
   }
   if (plan.deletes.length) {
     const { error: e2 } = await sb.from('events').delete().in('id', plan.deletes).like('id', `${OUTLOOK_PREFIX}%`);
     if (e2) return json(500, { error: 'suppression impossible', detail: e2.message });
   }
-  return json(200, { ok: true, from, to, with_description: withDescription, created_or_updated: plan.upserts.length, deleted: plan.deletes.length, duplicates_skipped: plan.duplicates, total: plan.total });
+  return json(200, { ok: true, from, to, with_description: withDescription, created_or_updated: plan.upserts.length, deleted: plan.deletes.length, linked_to_subject: plan.linked, duplicates_skipped: plan.duplicates, total: plan.total });
 });

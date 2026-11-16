@@ -1,0 +1,31 @@
+/* ---------- Coquille de l'appli : réglages du menu « ⋯ » ----------
+   Uniquement des variables du thème : fonctionne en clair comme en sombre. */
+
+.theme-row {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: 4px; padding: 10px 10px 6px; border-top: 1px solid var(--line);
+}
+.theme-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+.theme-seg {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+  padding: 3px; border-radius: 11px; background: var(--sunken); border: 1px solid var(--line);
+}
+/* Spécificité supérieure à `.menu button` (lignes pleine largeur). */
+.menu .theme-seg button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  width: auto; min-height: 34px; padding: 6px 4px; border-radius: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.menu .theme-seg button:hover { background: var(--surface); color: var(--ink); }
+.menu .theme-seg button.on {
+  background: var(--surface); color: var(--ink);
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-sm, 0 1px 2px rgb(0 0 0 / .08));
+}
+.menu .theme-seg button.on svg { color: var(--brand); }
+.menu .theme-seg button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+@media (max-width: 700px) {
+  .menu .theme-seg button { min-height: 44px; font-size: 13px; }
+}

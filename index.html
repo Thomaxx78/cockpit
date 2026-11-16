@@ -7,6 +7,21 @@
     <meta name="theme-color" content="#0d1322" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <script>
+      // Applique le thème choisi (src/lib/theme.ts) avant le premier rendu pour éviter le flash.
+      (function () {
+        try {
+          var t = localStorage.getItem('cockpit-theme');
+          if (t !== 'light' && t !== 'dark') return;
+          var r = document.documentElement;
+          r.setAttribute('data-theme', t);
+          r.style.colorScheme = t;
+          var c = t === 'dark' ? '#0d1322' : '#f4f6fa';
+          var m = document.querySelectorAll('meta[name="theme-color"]');
+          for (var i = 0; i < m.length; i++) { m[i].setAttribute('data-original', m[i].content); m[i].content = c; }
+        } catch (e) { /* stockage indisponible : on suit le système */ }
+      })();
+    </script>
     <title>Cockpit IA — Sapaudia</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%235b5bf0'/><text x='16' y='22' font-size='17' text-anchor='middle' fill='white'>✦</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

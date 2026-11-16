@@ -1,22 +1,51 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, FolderOpen, HardDrive, LayoutDashboard, ListChecks, LogOut, Search, Upload,
+  AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, FolderOpen, HardDrive, History as HistoryIcon, LayoutDashboard, ListChecks,
+  LogOut, Search, Upload,
 } from 'lucide-react';
 import { signOut } from './components/Auth';
-import { AIChat } from './components/AIChat';
 import { NewMenu, useCreate } from './components/NewMenu';
 import { MoreMenu } from './components/MoreMenu';
 import { Palette } from './components/Palette';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
 import { isActive } from './lib/types';
-import { download, todayIso, useRoute } from './lib/utils';
-import { Actions } from './views/Actions';
-import { Calendar } from './views/Calendar';
+import { useTheme } from './lib/theme';
+import { download, go, todayIso, useRoute } from './lib/utils';
 import { Dashboard } from './views/Dashboard';
-import { Kanban } from './views/Kanban';
-import { SubjectDetail } from './views/SubjectDetail';
-import { Subjects } from './views/Subjects';
+import './styles/shell.css';
+
+/* ---------- Découpage du code ----------
+   Dashboard (page d'accueil) reste dans le bundle principal ; les autres vues et
+   l'assistant IA sont chargés à la demande, puis préchargés en tâche de fond. */
+const loaders = {
+  sujets: () => import('./views/Subjects'),
+  sujet: () => import('./views/SubjectDetail'),
+  kanban: () => import('./views/Kanban'),
+  calendrier: () => import('./views/Calendar'),
+  actions: () => import('./views/Actions'),
+  historique: () => import('./views/History'),
+  ai: () => import('./components/AIChat'),
+};
+const Subjects = lazy(() => loaders.sujets().then(m => ({ default: m.Subjects })));
+const SubjectDetail = lazy(() => loaders.sujet().then(m => ({ default: m.SubjectDetail })));
+const Kanban = lazy(() => loaders.kanban().then(m => ({ default: m.Kanban })));
+const Calendar = lazy(() => loaders.calendrier().then(m => ({ default: m.Calendar })));
+const Actions = lazy(() => loaders.actions().then(m => ({ default: m.Actions })));
+const History = lazy(() => loaders.historique().then(m => ({ default: m.History })));
+const AIChat = lazy(() => loaders.ai().then(m => ({ default: m.AIChat })));
+
+/** Précharge le code d'une page (survol / focus d'un lien). Erreur réseau ignorée : le lazy réessaiera. */
+const preload = (path: string) => {
+  const load = path === 'sujets' ? [loaders.sujets, loaders.sujet] : [loaders[path as keyof typeof loaders]];
+  load.forEach(l => l?.().catch(() => {}));
+};
+/** Après le premier affichage, quand le navigateur est inactif : précharge toutes les vues. */
+const preloadAllWhenIdle = () => {
+  const run = () => Object.values(loaders).forEach(l => l().catch(() => {}));
+  const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+  if (ric) ric(run, { timeout: 4000 }); else setTimeout(run, 1500);
+};
 
 const NAV = [
   ['', 'Vue d’ensemble', LayoutDashboard, 'Accueil'],
@@ -24,7 +53,12 @@ const NAV = [
   ['kanban', 'Kanban', Columns3, 'Kanban'],
   ['calendrier', 'Calendrier', CalendarDays, 'Agenda'],
   ['actions', 'Actions', ListChecks, 'Actions'],
+  ['historique', 'Historique', HistoryIcon, 'Historique'],
 ] as const;
+/** Barre d'onglets mobile : 5 onglets maximum ; « Historique » passe par le menu « ⋯ ». */
+const TABS = NAV.filter(([p]) => p !== 'historique');
+const PAGES: [string, string][] = NAV.map(([p, l]) => [p, l]);
+const splash = <div className="splash"><div className="spinner" /></div>;
 
 export function App({ email }: { email: string | null }) {
   const { parts, query } = useRoute();
@@ -35,6 +69,9 @@ export function App({ email }: { email: string | null }) {
   const page = parts[0] ?? '';
   const currentSubject = page === 'sujets' && parts[1] ? parts[1] : undefined;
   const create = useCreate(currentSubject);
+  useTheme(); // garde data-theme et theme-color à jour (changement du système, autre onglet)
+
+  useEffect(preloadAllWhenIdle, []);
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -65,7 +102,7 @@ export function App({ email }: { email: string | null }) {
   };
 
   let view;
-  if (!ready) view = <div className="splash"><div className="spinner" /></div>;
+  if (!ready) view = splash;
   else if (loadError) view = (
     <div className="page"><div className="notice error">
       <AlertCircle size={18} /> Impossible de charger les données : {loadError}. As-tu bien exécuté <code>supabase/schema.sql</code> ?
@@ -77,6 +114,7 @@ export function App({ email }: { email: string | null }) {
   else if (page === 'kanban') view = <Kanban />;
   else if (page === 'calendrier') view = <Calendar />;
   else if (page === 'actions') view = <Actions />;
+  else if (page === 'historique') view = <History />;
   else view = <Dashboard />;
 
   const sync = backendKind === 'local'
@@ -101,7 +139,10 @@ export function App({ email }: { email: string | null }) {
         </div>
         <nav>
           {NAV.map(([path, label, Icon]) => (
-            <a key={path} href={'#/' + path} className={`nav ${page === path ? 'active' : ''}`} title={label} aria-current={page === path ? 'page' : undefined}>
+            <a
+              key={path} href={'#/' + path} className={`nav ${page === path ? 'active' : ''}`} title={label} aria-current={page === path ? 'page' : undefined}
+              onPointerEnter={() => preload(path)} onFocus={() => preload(path)}
+            >
               <Icon size={18} /><span>{label}</span>
               {path === 'actions' && <>
                 {lateCount > 0 && <span className="nav-late" title={`${lateCount} en retard`}>{lateCount}</span>}
@@ -141,6 +182,7 @@ export function App({ email }: { email: string | null }) {
             <MoreMenu
               status={sync}
               items={[
+                { icon: <HistoryIcon size={17} />, label: 'Historique', hint: 'Journal des modifications', run: () => go('historique') },
                 { icon: <Download size={17} />, label: 'Exporter', hint: 'Sauvegarde JSON', run: exportJSON },
                 { icon: <Upload size={17} />, label: 'Importer', hint: 'Fusionner une sauvegarde', run: () => fileRef.current?.click() },
                 ...(email ? [{ icon: <LogOut size={17} />, label: 'Verrouiller', hint: 'Se déconnecter', run: () => { signOut(); }, danger: true }] : []),
@@ -157,20 +199,24 @@ export function App({ email }: { email: string | null }) {
           </div></div>
         )}
 
-        <main key={page + (parts[1] ?? '')} className="main">{view}</main>
+        <main key={page + (parts[1] ?? '')} className="main"><Suspense fallback={splash}>{view}</Suspense></main>
       </div>
 
       <nav className="tabbar" aria-label="Navigation principale">
-        {NAV.map(([path, , Icon, short]) => (
-          <a key={path} href={'#/' + path} className={page === path ? 'active' : ''} aria-current={page === path ? 'page' : undefined}>
+        {TABS.map(([path, , Icon, short]) => (
+          <a
+            key={path} href={'#/' + path} className={page === path ? 'active' : ''} aria-current={page === path ? 'page' : undefined}
+            onPointerDown={() => preload(path)}
+          >
             <span className="tab-ico"><Icon size={21} /></span><span>{short}</span>
           </a>
         ))}
       </nav>
 
-      {palette && <Palette onClose={() => setPalette(false)} pages={NAV.map(([p, l]) => [p, l])} />}
+      {palette && <Palette onClose={() => setPalette(false)} pages={PAGES} />}
 
-      <AIChat />
+      {/* Chunk séparé, demandé dès le premier rendu (en parallèle) : le bouton apparaît aussitôt chargé. */}
+      <Suspense fallback={null}><AIChat /></Suspense>
 
       <div className="toasts">
         {toasts.map(t => <div key={t.id} className={`toast ${t.tone ?? ''}`}>{t.text}</div>)}

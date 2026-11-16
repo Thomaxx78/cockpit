@@ -1,0 +1,56 @@
+/* ---------- Historique (vue semaine + panneau de la fiche sujet) ---------- */
+/* Uniquement des variables du thème : fonctionne en clair comme en sombre. */
+
+.hist-nav { display: flex; align-items: center; gap: 6px; }
+.hist-nav .btn:disabled { opacity: .5; }
+.hist-nav .icon-btn:disabled { opacity: .35; cursor: default; }
+.hist-nav .icon-btn:disabled:hover { background: var(--surface); color: var(--muted); }
+
+.hist-stats .stat { cursor: default; }
+
+.hist-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+
+.hist-list { list-style: none; margin: 0; padding: 0; }
+.hist-list li + li { box-shadow: 0 -1px 0 var(--line); }
+.hist-row {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 10px; border-radius: 10px;
+  text-align: left; color: inherit; transition: background .15s;
+}
+button.hist-row:hover { background: var(--surface-2); }
+button.hist-row:hover .row-title { color: var(--brand); }
+.hist-day { width: 52px; flex-shrink: 0; padding-top: 1px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: capitalize; }
+.hist-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hist-main .row-title { overflow-wrap: anywhere; }
+.hist-main .meta { gap: 4px 6px; }
+.hist-change { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.hist-change .pill { font-size: 11.5px; }
+.hist-time { color: var(--ink-2); font-weight: 500; }
+.hist-time::before { content: '·'; margin-right: 6px; color: var(--muted-2); }
+.hist-note { text-align: center; margin: 0; }
+
+/* Panneau « Historique » de la fiche sujet : flux compact */
+.hist-feed { list-style: none; margin: 0; padding: 0; }
+.hist-entry { display: flex; align-items: flex-start; gap: 10px; padding: 7px 2px; font-size: 13px; line-height: 1.4; }
+.hist-entry + .hist-entry { box-shadow: 0 -1px 0 var(--line); }
+.hist-entry button { text-align: left; color: inherit; }
+.hist-entry button:hover { color: var(--brand); }
+.hist-date { width: 46px; flex-shrink: 0; font-size: 12px; color: var(--muted); padding-top: 1px; }
+.hist-ico { display: grid; place-items: center; width: 18px; height: 18px; flex-shrink: 0; color: var(--muted); margin-top: 1px; }
+.hist-ico.done { color: var(--green); }
+.hist-ico.deleted { color: var(--muted-2); }
+.hist-text { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink-2); }
+.hist-text b { font-weight: 600; color: var(--muted); }
+.hist-more { margin-top: 6px; }
+
+@media (max-width: 1100px) {
+  .hist-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .hist-nav { width: 100%; }
+  .hist-nav .btn { flex: 1; min-height: 44px; }
+  .hist-nav .icon-btn { width: 44px; height: 44px; }
+  .hist-row { min-height: 44px; padding: 11px 6px; }
+  .hist-entry { min-height: 44px; align-items: center; font-size: 14px; }
+  .hist-entry button { min-height: 44px; }
+  .hist-more { min-height: 44px; }
+}

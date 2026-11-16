@@ -157,3 +157,65 @@ create table if not exists public.reminder_log (
   detail   jsonb
 );
 alter table public.reminder_log enable row level security;
+
+-- ============================================================
+-- Historique (« ce qui a été fait ») : journal alimenté par triggers
+-- ============================================================
+-- Créations, changements de statut et suppressions des actions et des sujets.
+-- Les réunions passées ne sont pas journalisées : elles viennent directement de public.events.
+create table if not exists public.activity (
+  id          bigserial primary key,
+  at          timestamptz not null default now(),
+  entity      text not null check (entity in ('task', 'subject', 'event')),
+  entity_id   text not null,
+  subject_id  text,              -- sujet concerné (pour filtrer la fiche sujet)
+  kind        text not null check (kind in ('created', 'status', 'deleted')),
+  label       text not null default '',  -- nom de l'élément au moment du changement
+  from_status text,
+  to_status   text
+);
+create index if not exists activity_at_idx      on public.activity(at desc);
+create index if not exists activity_subject_idx on public.activity(subject_id);
+
+-- security definer : l'insertion fonctionne quel que soit l'appelant (navigateur, Edge Function IA…).
+-- to_jsonb() évite de référencer subject_id sur la table subjects (colonne inexistante).
+create or replace function public.log_activity() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  ent  text := case tg_table_name when 'tasks' then 'task' else 'subject' end;
+  rec  jsonb;
+  subj text;
+begin
+  rec := to_jsonb(case when tg_op = 'DELETE' then old else new end);
+  subj := case when ent = 'task' then rec ->> 'subject_id' else rec ->> 'id' end;
+  if tg_op = 'INSERT' then
+    insert into public.activity (entity, entity_id, subject_id, kind, label, to_status)
+    values (ent, rec ->> 'id', subj, 'created', coalesce(rec ->> 'name', ''), rec ->> 'status');
+  elsif tg_op = 'UPDATE' then
+    if new.status is distinct from old.status then
+      insert into public.activity (entity, entity_id, subject_id, kind, label, from_status, to_status)
+      values (ent, rec ->> 'id', subj, 'status', coalesce(rec ->> 'name', ''), old.status, new.status);
+    end if;
+  elsif tg_op = 'DELETE' then
+    insert into public.activity (entity, entity_id, subject_id, kind, label, from_status)
+    values (ent, rec ->> 'id', subj, 'deleted', coalesce(rec ->> 'name', ''), old.status);
+  end if;
+  return null;
+end $$;
+
+drop trigger if exists tasks_activity on public.tasks;
+create trigger tasks_activity after insert or update or delete on public.tasks
+  for each row execute function public.log_activity();
+drop trigger if exists subjects_activity on public.subjects;
+create trigger subjects_activity after insert or update or delete on public.subjects
+  for each row execute function public.log_activity();
+
+alter table public.activity enable row level security;
+drop policy if exists "owner only" on public.activity;
+create policy "owner only" on public.activity
+  for all to authenticated using (public.is_owner()) with check (public.is_owner());
+
+do $$
+begin
+  begin alter publication supabase_realtime add table public.activity; exception when others then null; end;
+end $$;

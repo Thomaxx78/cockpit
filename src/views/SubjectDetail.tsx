@@ -1,11 +1,40 @@
-import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CalendarPlus, Check, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ArrowLeft, ArrowRightLeft, CalendarCheck2, CalendarPlus, Check, CheckCircle2, Plus, RotateCcw, Sparkles, Trash2 } from 'lucide-react';
 import { ColorPicker, useEditors } from '../components/editors';
 import { TaskRow } from '../components/TaskRow';
 import { AutoTextarea, Empty } from '../components/ui';
 import { newId, useStore } from '../lib/store';
-import { SUBJECT_STATUSES, type Subject } from '../lib/types';
-import { dayMonth, go, relative, statusClass, timeRange } from '../lib/utils';
+import { isPastMeeting, SUBJECT_STATUSES, type Activity, type CalEvent, type Subject } from '../lib/types';
+import { dayMonth, fmtShort, go, iso, relative, statusClass, timeRange, todayIso } from '../lib/utils';
+import '../styles/history.css';
+
+type HistoryEntry = { key: string; sort: string; day: string; icon: ReactNode; tone?: 'done' | 'deleted'; prefix: string; text: string; eventId?: string };
+
+/** Historique d'un sujet, du plus récent au plus ancien : statuts, actions, réunions passées. */
+function subjectHistory(id: string, activity: Activity[], events: CalEvent[]): HistoryEntry[] {
+  const out: HistoryEntry[] = [];
+  const local = (at: string) => { const d = new Date(at); return { day: iso(d), sort: iso(d) + 'T' + d.toTimeString().slice(0, 8) }; };
+  for (const a of activity) {
+    if (a.subject_id !== id) continue;
+    const { day, sort } = local(a.at);
+    const base = { key: 'a' + a.id, day, sort };
+    if (a.entity === 'subject') {
+      if (a.kind === 'created') out.push({ ...base, icon: <Sparkles size={14} />, prefix: 'Sujet créé', text: '' });
+      else if (a.kind === 'status') out.push({ ...base, icon: <ArrowRightLeft size={14} />, prefix: 'Statut :', text: `${a.from_status ?? '—'} → ${a.to_status ?? '—'}` });
+    } else if (a.entity === 'task') {
+      if (a.kind === 'created') out.push({ ...base, icon: <Plus size={14} />, prefix: 'Action créée :', text: a.label });
+      else if (a.kind === 'deleted') out.push({ ...base, icon: <Trash2 size={14} />, tone: 'deleted', prefix: 'Action supprimée :', text: a.label });
+      else if (a.to_status === 'Terminé') out.push({ ...base, icon: <CheckCircle2 size={14} />, tone: 'done', prefix: 'Action terminée :', text: a.label });
+      else if (a.from_status === 'Terminé') out.push({ ...base, icon: <RotateCcw size={14} />, prefix: 'Action rouverte :', text: a.label });
+    }
+  }
+  const today = todayIso();
+  for (const e of events) {
+    if (e.subject_id !== id || !isPastMeeting(e, today)) continue;
+    out.push({ key: 'e' + e.id, day: e.date, sort: e.date + 'T' + (e.start_time ?? '00:00'), icon: <CalendarCheck2 size={14} />, prefix: 'Réunion :', text: e.name, eventId: e.id });
+  }
+  return out.sort((a, b) => b.sort.localeCompare(a.sort));
+}
 
 /** Champ éditable sur place, sauvegardé automatiquement (pause de frappe ou sortie du champ). */
 function Inline({ value, onSave, placeholder, className, multiline = true, label, autoFocus }: {
@@ -38,7 +67,7 @@ function Inline({ value, onSave, placeholder, className, multiline = true, label
 }
 
 export function SubjectDetail({ id }: { id: string }) {
-  const { db, subject, saveSubject, deleteSubject, saveTask, toast, saving } = useStore();
+  const { db, activity, subject, saveSubject, deleteSubject, saveTask, toast, saving } = useStore();
   const { editEvent } = useEditors();
   const s = subject(id);
   const latest = useRef(s);
@@ -46,6 +75,7 @@ export function SubjectDetail({ id }: { id: string }) {
   const [quick, setQuick] = useState('');
   const [showColors, setShowColors] = useState(false);
   const [opened, setOpened] = useState<(keyof Subject)[]>([]);
+  const [allHistory, setAllHistory] = useState(false);
 
   if (!s) return <div className="page"><Empty>Ce sujet n'existe plus. <button className="link" onClick={() => go('sujets')}>Retour aux sujets</button></Empty></div>;
 
@@ -53,6 +83,8 @@ export function SubjectDetail({ id }: { id: string }) {
   const tasks = db.tasks.filter(t => t.subject_id === id).sort((a, b) => Number(a.status === 'Terminé') - Number(b.status === 'Terminé') || a.position - b.position);
   const events = db.events.filter(e => e.subject_id === id).sort((a, b) => (a.date + (a.start_time ?? '')).localeCompare(b.date + (b.start_time ?? '')));
   const done = tasks.filter(t => t.status === 'Terminé').length;
+  const history = subjectHistory(id, activity, db.events);
+  const HISTORY_SHORT = 6;
 
   const addQuick = () => {
     const name = quick.trim();
@@ -165,6 +197,36 @@ export function SubjectDetail({ id }: { id: string }) {
                 </button>
               );
             }) : <p className="hint">Aucune date liée.</p>}
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h3>Historique</h3>
+              {history.length > 0 && <span className="count">{history.length}</span>}
+            </div>
+            {history.length ? (
+              <>
+                <ul className="hist-feed">
+                  {(allHistory ? history : history.slice(0, HISTORY_SHORT)).map(h => {
+                    const ev = h.eventId ? db.events.find(e => e.id === h.eventId) : undefined;
+                    return (
+                      <li key={h.key} className="hist-entry">
+                        <span className="hist-date">{fmtShort(h.day)}</span>
+                        <span className={`hist-ico ${h.tone ?? ''}`} aria-hidden="true">{h.icon}</span>
+                        {ev
+                          ? <button className="hist-text" onClick={() => editEvent(ev)}><b>{h.prefix}</b> {h.text}</button>
+                          : <span className="hist-text"><b>{h.prefix}</b> {h.text}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {history.length > HISTORY_SHORT && (
+                  <button className="link hist-more" onClick={() => setAllHistory(v => !v)} aria-expanded={allHistory}>
+                    {allHistory ? 'Réduire' : `Tout voir (${history.length})`}
+                  </button>
+                )}
+              </>
+            ) : <p className="hint">Les changements de ce sujet s'afficheront ici au fil de l'eau.</p>}
           </section>
         </div>
       </div>
