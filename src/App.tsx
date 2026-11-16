@@ -103,7 +103,10 @@ export function App({ email }: { email: string | null }) {
           {NAV.map(([path, label, Icon]) => (
             <a key={path} href={'#/' + path} className={`nav ${page === path ? 'active' : ''}`} title={label} aria-current={page === path ? 'page' : undefined}>
               <Icon size={18} /><span>{label}</span>
-              {path === 'actions' && <span className={`nav-count ${lateCount ? 'late' : ''}`} title={lateCount ? `${lateCount} en retard` : undefined}>{openTasks.length}</span>}
+              {path === 'actions' && <>
+                {lateCount > 0 && <span className="nav-late" title={`${lateCount} en retard`}>{lateCount}</span>}
+                <span className="nav-count" title={`${openTasks.length} ouvertes`}>{openTasks.length}</span>
+              </>}
             </a>
           ))}
         </nav>

@@ -18,12 +18,11 @@ type Cols = Record<string, string[]>;
 function Card({ t, overlay }: { t: Task; overlay?: boolean }) {
   const owner = cleanOwner(t.owner);
   return (
-    <div className={`kcard ${overlay ? 'overlay' : ''} ${t.status === 'Terminé' ? 'is-done' : ''}`}>
+    <div className={`kcard ${overlay ? 'overlay' : ''} ${t.status === 'Terminé' ? 'is-done' : ''}`} title={owner ? `Interlocuteur : ${owner}` : undefined}>
       <div className="kcard-top"><div className="kcard-name">{t.name}</div><Prio p={t.priority} /></div>
       <div className="meta">
         <SubjectTag id={t.subject_id} />
         <DueBadge date={t.due_date} done={!isActive(t.status)} />
-        {owner && <span className="meta-item meta-owner">{owner}</span>}
       </div>
     </div>
   );

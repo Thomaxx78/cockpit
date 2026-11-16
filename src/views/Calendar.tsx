@@ -5,7 +5,21 @@ import { Empty } from '../components/ui';
 import { useStore } from '../lib/store';
 import { dayMonth, iso, MOBILE, timeRange, todayIso, useMedia } from '../lib/utils';
 
-type Item = { key: string; date: string; time: string; sort: string; name: string; color?: string; kind: 'event' | 'task'; label: string; done?: boolean; open: () => void };
+type Item = { key: string; date: string; time: string; sort: string; name: string; color?: string; kind: 'event' | 'task'; label: string; done?: boolean; span?: [number, number] | null; open: () => void };
+
+/** Plage représentée par une étiquette : la journée de travail, de 7h à 21h. */
+const DAY_START = 7 * 60;
+const DAY_END = 21 * 60;
+const minutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+/** Position du créneau dans la journée, en % de la largeur de l'étiquette (durée réelle visible). */
+function daySpan(start: string | null, end: string | null): [number, number] | null {
+  if (!start) return null;
+  const s = minutes(start);
+  const e = end ? minutes(end) : s + 60;
+  const pct = (m: number) => Math.min(100, Math.max(0, ((m - DAY_START) / (DAY_END - DAY_START)) * 100));
+  const from = pct(s);
+  return [from, Math.max(pct(e), from + 3)]; // 3 % minimum pour qu'un créneau court reste visible
+}
 
 const longDay = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -25,7 +39,7 @@ export function Calendar() {
   const weeks = Math.ceil((start + new Date(y, m + 1, 0).getDate()) / 7);
 
   const items: Item[] = [
-    ...db.events.map(e => ({ key: e.id, date: e.date, time: timeRange(e.start_time, e.end_time), sort: e.start_time ?? '', name: e.name, color: subject(e.subject_id)?.color, kind: 'event' as const, label: e.kind, open: () => editEvent(e) })),
+    ...db.events.map(e => ({ key: e.id, date: e.date, time: timeRange(e.start_time, e.end_time), sort: e.start_time ?? '', name: e.name, color: subject(e.subject_id)?.color, kind: 'event' as const, label: e.kind, span: daySpan(e.start_time, e.end_time), open: () => editEvent(e) })),
     ...(showTasks ? db.tasks.filter(t => t.due_date).map(t => ({
       key: t.id, date: t.due_date!, time: '', sort: '99', name: t.name, color: subject(t.subject_id)?.color, kind: 'task' as const, label: 'Échéance d’action', done: t.status === 'Terminé', open: () => editTask(t),
     })) : []),
@@ -88,8 +102,11 @@ export function Calendar() {
                 {list.slice(0, list.length > MAX ? MAX - 1 : MAX).map(it => (
                   <button
                     key={it.key}
-                    className={`evt ${it.kind} ${it.done ? 'is-done' : ''}`}
-                    style={{ ['--c' as string]: it.color }}
+                    className={`evt ${it.kind} ${it.done ? 'is-done' : ''} ${it.span ? 'timed' : ''}`}
+                    style={{
+                      ['--c' as string]: it.color,
+                      ...(it.span ? { ['--from' as string]: `${it.span[0]}%`, ['--to' as string]: `${it.span[1]}%` } : {}),
+                    }}
                     title={it.time ? `${it.time} · ${it.name}` : it.name}
                     onClick={e => { e.stopPropagation(); it.open(); }}
                   >

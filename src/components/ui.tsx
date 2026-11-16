@@ -6,7 +6,9 @@ import { useStore } from '../lib/store';
 export const Pill = ({ status }: { status: string }) => <span className={`pill ${statusClass(status)}`}>{status}</span>;
 
 /** Seule la priorité P1 est signalée dans les listes ; P2/P3 restent visibles dans l'éditeur et via le tri. */
-export const Prio = ({ p }: { p: string }) => (p === 'P1' ? <span className="prio prio-p1" title="Priorité P1 — urgent">P1</span> : null);
+export const Prio = ({ p }: { p: string }) => (p === 'P1'
+  ? <span className="prio prio-p1" title="Priorité P1 — urgent">P1</span>
+  : <span className="prio" aria-hidden="true" />); // emplacement vide : garde les statuts alignés
 
 export const Dot = ({ color, size = 9 }: { color?: string; size?: number }) => (
   <span className="dot" style={{ background: color ?? 'var(--muted-2)', width: size, height: size }} />
@@ -17,7 +19,7 @@ export function SubjectTag({ id }: { id: string | null }) {
   return (
     <span className="subject-tag">
       <Dot color={s?.color} />
-      {s?.name ?? 'Sans sujet'}
+      <span className="subject-tag-name">{s?.name ?? 'Sans sujet'}</span>
     </span>
   );
 }
