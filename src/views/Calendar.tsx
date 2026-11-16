@@ -7,18 +7,48 @@ import { dayMonth, iso, MOBILE, timeRange, todayIso, useMedia } from '../lib/uti
 
 type Item = { key: string; date: string; time: string; sort: string; name: string; color?: string; kind: 'event' | 'task'; label: string; done?: boolean; span?: [number, number] | null; open: () => void };
 
-/** Plage représentée par une étiquette : la journée de travail, de 7h à 21h. */
-const DAY_START = 7 * 60;
-const DAY_END = 21 * 60;
+/** Axe vertical de chaque case : la journée de 8h (haut) à 20h (bas). */
+const DAY_START = 8 * 60;
+const DAY_END = 20 * 60;
+/** Hauteur minimale d'un bloc (en % de l'axe) pour que son libellé reste lisible. */
+const MIN_PCT = 18;
 const minutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
-/** Position du créneau dans la journée, en % de la largeur de l'étiquette (durée réelle visible). */
+const pct = (m: number) => Math.min(100, Math.max(0, ((m - DAY_START) / (DAY_END - DAY_START)) * 100));
+
+/** Position réelle du créneau sur l'axe de la journée, en % (début, fin). */
 function daySpan(start: string | null, end: string | null): [number, number] | null {
   if (!start) return null;
   const s = minutes(start);
-  const e = end ? minutes(end) : s + 60;
-  const pct = (m: number) => Math.min(100, Math.max(0, ((m - DAY_START) / (DAY_END - DAY_START)) * 100));
-  const from = pct(s);
-  return [from, Math.max(pct(e), from + 3)]; // 3 % minimum pour qu'un créneau court reste visible
+  let e = end ? minutes(end) : s + 60; // sans heure de fin : 1h
+  if (e <= s) e = s + 30;
+  return [pct(s), pct(e)];
+}
+
+type Block = { it: Item; top: number; bottom: number; lane: number; lanes: number };
+/** Place les réunions sur l'axe vertical ; celles qui se chevauchent se partagent la largeur. */
+function layoutDay(timed: Item[]): Block[] {
+  const blocks: Block[] = timed
+    .map(it => {
+      const [from, to] = it.span!;
+      const top = Math.min(from, 100 - MIN_PCT);
+      return { it, top, bottom: Math.min(100, Math.max(to, top + MIN_PCT)), lane: 0, lanes: 1 };
+    })
+    .sort((a, b) => a.top - b.top || b.bottom - a.bottom);
+  let group: Block[] = [];
+  let laneEnds: number[] = [];
+  let groupEnd = -1;
+  const close = () => { for (const b of group) b.lanes = laneEnds.length; group = []; laneEnds = []; };
+  for (const b of blocks) {
+    if (b.top >= groupEnd) { close(); groupEnd = -1; }
+    let lane = laneEnds.findIndex(end => end <= b.top);
+    if (lane < 0) lane = laneEnds.length;
+    laneEnds[lane] = b.bottom;
+    b.lane = lane;
+    groupEnd = Math.max(groupEnd, b.bottom);
+    group.push(b);
+  }
+  close();
+  return blocks;
 }
 
 const longDay = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -54,7 +84,7 @@ export function Calendar() {
     .sort((a, b) => (a.date + a.sort).localeCompare(b.date + b.sort));
   const shift = (n: number) => { setMonth(new Date(y, m + n, 1)); setSelected(null); };
   const goToday = () => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); setSelected(mobile ? today : null); };
-  const MAX = 3;
+  const MAX_TOP = 2;
   const pickDay = (key: string) => (mobile ? setSelected(key) : editEvent(null, { date: key }));
 
   return (
@@ -98,29 +128,52 @@ export function Calendar() {
                     {list.length > 3 && <small>+{list.length - 3}</small>}
                   </span>
                 )
-              ) : <>
-                {list.slice(0, list.length > MAX ? MAX - 1 : MAX).map(it => (
-                  <button
-                    key={it.key}
-                    className={`evt ${it.kind} ${it.done ? 'is-done' : ''} ${it.span ? 'timed' : ''}`}
-                    style={{
-                      ['--c' as string]: it.color,
-                      ...(it.span ? { ['--from' as string]: `${it.span[0]}%`, ['--to' as string]: `${it.span[1]}%` } : {}),
-                    }}
-                    title={it.time ? `${it.time} · ${it.name}` : it.name}
-                    onClick={e => { e.stopPropagation(); it.open(); }}
-                  >
-                    {it.kind === 'task' ? <Check size={11} strokeWidth={3} /> : <i className="evt-dot" />}
-                    {it.time && <b className="evt-time">{it.time.split('–')[0]}</b>}
-                    <span>{it.name}</span>
-                  </button>
-                ))}
-                {list.length > MAX && (
-                  <button className="evt-more" onClick={e => { e.stopPropagation(); setSelected(key); }}>
-                    +{list.length - (MAX - 1)} autres
-                  </button>
-                )}
-              </>}
+              ) : (() => {
+                // Sans heure (journée entière, échéance) : étiquettes en haut. Avec heure : blocs sur l'axe 8h → 20h.
+                const untimed = list.filter(it => !it.span);
+                const timed = list.filter(it => it.span);
+                const shown = untimed.length > MAX_TOP ? MAX_TOP - 1 : MAX_TOP;
+                return <>
+                  {untimed.slice(0, shown).map(it => (
+                    <button
+                      key={it.key}
+                      className={`evt ${it.kind} ${it.done ? 'is-done' : ''}`}
+                      style={{ ['--c' as string]: it.color }}
+                      title={it.name}
+                      onClick={e => { e.stopPropagation(); it.open(); }}
+                    >
+                      {it.kind === 'task' ? <Check size={11} strokeWidth={3} /> : <i className="evt-dot" />}
+                      <span>{it.name}</span>
+                    </button>
+                  ))}
+                  {untimed.length > shown && (
+                    <button className="evt-more" onClick={e => { e.stopPropagation(); setSelected(key); }}>
+                      +{untimed.length - shown} autre{untimed.length - shown > 1 ? 's' : ''}
+                    </button>
+                  )}
+                  {timed.length > 0 && (
+                    <div className="day-track">
+                      {layoutDay(timed).map(({ it, top, bottom, lane, lanes }) => (
+                        <button
+                          key={it.key}
+                          className="evt-block"
+                          style={{
+                            ['--c' as string]: it.color,
+                            top: `${top}%`,
+                            height: `${bottom - top}%`,
+                            left: `${(lane / lanes) * 100}%`,
+                            width: `calc(${100 / lanes}% - 2px)`,
+                          }}
+                          title={`${it.time} · ${it.name}`}
+                          onClick={e => { e.stopPropagation(); it.open(); }}
+                        >
+                          <b>{it.time.split('–')[0]}</b> {it.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>;
+              })()}
             </div>
           );
         })}

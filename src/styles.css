@@ -944,9 +944,21 @@ details.foot-hint[open] summary { margin-bottom: 4px; }
 .kcard-top > .prio:empty { display: none; }
 .subject-tag-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .subject-tag { max-width: 100%; }
-/* Réunion horodatée : l'étiquette = la journée 7h–21h, la partie teintée = le créneau réel (durée lisible d'un coup d'œil). */
-.evt.timed {
-  background: linear-gradient(90deg, var(--surface-2) var(--from), color-mix(in srgb, var(--c, var(--brand)) 34%, var(--surface)) var(--from) var(--to), var(--surface-2) var(--to));
+/* ---------- Calendrier : axe vertical 8h → 20h dans chaque case ---------- */
+.day-track {
+  position: relative; flex: 1; min-height: 64px; margin-top: 2px; border-radius: 6px;
+  /* repères discrets à 12h et 16h */
+  background:
+    linear-gradient(var(--line), var(--line)) 0 33.33% / 100% 1px no-repeat,
+    linear-gradient(var(--line), var(--line)) 0 66.67% / 100% 1px no-repeat;
 }
-.evt.timed:hover { background:
-    linear-gradient(90deg, var(--sunken) var(--from), color-mix(in srgb, var(--c, var(--brand)) 44%, var(--surface)) var(--from) var(--to), var(--sunken) var(--to)); }
+.evt-block {
+  position: absolute; overflow: hidden; text-align: left; padding: 1px 4px 1px 5px;
+  font-size: 10.5px; line-height: 1.25; color: var(--ink); border-radius: 4px;
+  background: color-mix(in srgb, var(--c, var(--brand)) 26%, var(--surface));
+  box-shadow: inset 2px 0 0 var(--c, var(--brand));
+  overflow-wrap: anywhere; transition: background .12s;
+}
+.evt-block b { font-weight: 700; }
+.evt-block:hover { background: color-mix(in srgb, var(--c, var(--brand)) 40%, var(--surface)); z-index: 1; }
+.day.other .evt-block { opacity: .55; }
