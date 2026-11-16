@@ -962,3 +962,59 @@ details.foot-hint[open] summary { margin-bottom: 4px; }
 .evt-block b { font-weight: 700; }
 .evt-block:hover { background: color-mix(in srgb, var(--c, var(--brand)) 40%, var(--surface)); z-index: 1; }
 .day.other .evt-block { opacity: .55; }
+/* Numéro du jour cliquable (ordinateur) : ouvre la vue de la journée */
+button.daynum { cursor: pointer; transition: background .15s; }
+button.daynum:hover { background: var(--sunken); }
+.day.today button.daynum:hover { background: var(--brand); }
+.day.selected .daynum { box-shadow: inset 0 0 0 2px var(--brand); }
+.now-line { position: absolute; left: -3px; right: 0; height: 2px; background: var(--red); border-radius: 2px; pointer-events: none; z-index: 2; }
+.now-line::before { content: ""; position: absolute; left: -2px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+
+/* Cases étroites (tablette, petites fenêtres) : on garde l’heure puis seulement la barre colorée */
+.day { container-type: inline-size; }
+@container (max-width: 108px) {
+  .evt-block .evt-name { display: none; }
+  .evt-block { padding: 1px 3px 1px 4px; }
+  .evt { font-size: 10px; padding: 2px 4px; }
+}
+@container (max-width: 68px) {
+  .evt-block b { display: none; }
+  .evt .evt-dot, .evt svg { display: none; }
+}
+
+/* Téléphone : barres dont la hauteur reflète la durée */
+.day-dots { align-items: flex-end; min-height: 16px; }
+.day-dots i.bar { width: 4px; border-radius: 2px; background: var(--c, var(--brand)); }
+
+/* ---------- Vue de la journée ---------- */
+.agenda.show { max-width: 760px; width: 100%; }
+.dayview { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.dv-allday { display: flex; flex-wrap: wrap; gap: 6px; }
+.dv-chip { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 6px 11px; border-radius: 10px; font-size: 13px; font-weight: 500; text-align: left; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink); transition: border-color .15s; }
+.dv-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dv-chip:hover { border-color: var(--line-2); }
+.dv-chip.task { color: var(--muted); }
+.dv-chip.task svg { color: var(--c, var(--muted-2)); flex-shrink: 0; }
+.dv-chip.is-done span { text-decoration: line-through; }
+.dv-grid { position: relative; margin: 8px 0 6px; }
+.dv-hour { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+.dv-hour span { position: absolute; left: 0; top: -9px; width: 40px; padding-right: 8px; font-size: 11.5px; font-weight: 500; color: var(--muted); background: var(--surface); }
+.dv-track { position: absolute; inset: 0 0 0 46px; }
+.dv-block {
+  position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; overflow: hidden;
+  padding: 4px 8px 4px 10px; border-radius: 8px; text-align: left; font-size: 13px; line-height: 1.3; color: var(--ink);
+  background: color-mix(in srgb, var(--c, var(--brand)) 22%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--c, var(--brand)); transition: background .12s;
+}
+.dv-block:hover { background: color-mix(in srgb, var(--c, var(--brand)) 34%, var(--surface)); z-index: 1; }
+.dv-block b { font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
+.dv-block span { font-weight: 600; overflow-wrap: anywhere; }
+.dv-block small { font-size: 11.5px; color: var(--muted); }
+.dv-now { position: absolute; left: -6px; right: 0; height: 2px; background: var(--red); z-index: 2; pointer-events: none; }
+.dv-now::before { content: ""; position: absolute; left: -4px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); }
+@media (max-width: 700px) {
+  .dv-block { font-size: 14px; }
+  .dv-chip { font-size: 14px; min-height: 40px; }
+}
+.dv-block.short { flex-direction: row; align-items: center; gap: 8px; padding-top: 2px; padding-bottom: 2px; white-space: nowrap; }
+.dv-block.short span { overflow: hidden; text-overflow: ellipsis; }
