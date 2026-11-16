@@ -98,6 +98,30 @@ test('synchronisation : doublons évités, écritures minimales, suppressions li
   assert.ok(third.deletes.every(id => id.startsWith('ol-')));
 });
 
+test('description récupérée, invitation Teams réduite à son lien', () => {
+  const ics = cal(vevent(`UID:desc
+SUMMARY:Comité projet
+DESCRIPTION:Ordre du jour :\\n- budget\\n- planning\\n\\n\\n\\n________________________________________________________________________________\\nRéunion Microsoft Teams\\nRejoindre sur votre ordinateur\\, une application mobile ou un appareil de salle\\nCliquez ici pour rejoindre la réunion<https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=x>\\nID de la réunion : 123 456\\n________________________________________________________________________________
+DTSTART;TZID=Romance Standard Time:20261110T090000
+DTEND;TZID=Romance Standard Time:20261110T100000`));
+  const [o] = parseOutlook(ICAL, ics, '2026-09-26', '2027-04-24');
+  assert.equal(o.description, 'Ordre du jour :\n- budget\n- planning\n\nRéunion Teams : https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=x');
+  assert.equal(parse().find(o => o.name === 'Formation')!.description, '', 'sans description : chaîne vide');
+});
+
+test('synchronisation : une description modifiée est réécrite ; sans la colonne, elle est ignorée', () => {
+  const occ = parse();
+  const first = planSync(occ, [], '2026-09-26');
+  const stored: ExistingEvent[] = first.upserts.map(r => ({ ...r }));
+  const changed = occ.map(o => (o.name === 'Formation' ? { ...o, description: 'Salle B' } : o));
+  assert.equal(planSync(changed, stored, '2026-09-26').upserts.length, 2, 'les 2 jours de formation');
+
+  const legacy = planSync(changed, stored.map(({ description: _, ...r }) => r), '2026-09-26', { withDescription: false });
+  assert.equal(legacy.upserts.length, 0);
+  assert.ok(first.upserts.every(r => 'description' in r));
+  assert.ok(planSync(occ, [], '2026-09-26', { withDescription: false }).upserts.every(r => !('description' in r)));
+});
+
 test('identifiants stables et distincts', () => {
   assert.equal(stableId('a|b'), stableId('a|b'));
   assert.notEqual(stableId('a|b'), stableId('a|c'));

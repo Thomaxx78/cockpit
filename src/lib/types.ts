@@ -35,6 +35,8 @@ export type CalEvent = {
   kind: string;
   start_time: string | null;
   end_time: string | null;
+  /** Notes de la réunion (importées d'Outlook ou saisies à la main). */
+  description?: string;
 };
 
 export type DB = { subjects: Subject[]; tasks: Task[]; events: CalEvent[] };

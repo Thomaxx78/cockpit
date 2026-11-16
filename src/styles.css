@@ -935,3 +935,5 @@ details.foot-hint[open] summary { margin-bottom: 4px; }
 .ai-suggest-toggle { font-size: 12px; font-weight: 600; color: var(--muted); padding: 2px 4px 8px; }
 .ai-suggest-toggle:hover { color: var(--brand); }
 .page > .segmented { align-self: flex-start; }
+.event-desc { margin: 6px 0 0; padding: 10px 12px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; }
+.event-desc a { color: var(--brand); font-weight: 600; }

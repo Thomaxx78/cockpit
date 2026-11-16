@@ -91,9 +91,10 @@ Les jours où une réunion (hors cours) ou une échéance d'action est prévue, 
 
 ## Agenda Outlook
 
-L'agenda Outlook publié (lien ICS privé) est importé **chaque heure** dans le calendrier du Cockpit, avec le type « Outlook ». La synchronisation va d'Outlook vers le Cockpit uniquement, sur une fenêtre allant de 30 jours passés à 180 jours à venir.
+L'agenda Outlook publié (lien ICS privé) est importé **toutes les 15 minutes** dans le calendrier du Cockpit, avec le type « Outlook ». La synchronisation va d'Outlook vers le Cockpit uniquement, sur une fenêtre allant de 30 jours passés à 180 jours à venir.
 
 - Edge Function `supabase/functions/outlook-sync`, planifiée par `supabase/cron-outlook.sql`. Secret : `OUTLOOK_ICS_URL`.
 - Les récurrences, les exceptions, les annulations et les fuseaux Windows sont gérés grâce à `ical.js`.
 - Une réunion déjà saisie dans le Cockpit le même jour et à la même heure n'est pas dupliquée.
+- La description de la réunion est importée et affichée dans sa fiche, avec les liens cliquables. Le long bloc d'invitation Teams est réduit à son lien « Rejoindre ». Il faut que l'agenda soit publié avec **tous les détails** (et non « disponibilité uniquement »), sinon Outlook n'envoie pas les descriptions.
 - Les événements Outlook apparaissent aussi dans le rappel de 9h.

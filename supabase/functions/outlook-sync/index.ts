@@ -1,6 +1,6 @@
 // Edge Function « outlook-sync » : importe l'agenda Outlook publié (ICS) dans le calendrier du Cockpit.
 //
-// Appelée chaque heure par pg_cron (voir supabase/cron-outlook.sql), protégée par l'en-tête
+// Appelée toutes les 15 minutes par pg_cron (voir supabase/cron-outlook.sql), protégée par l'en-tête
 // x-cron-secret (même secret que le rappel quotidien). Synchronisation à sens unique :
 // Outlook → Cockpit, sur une fenêtre de 30 jours passés à 180 jours à venir.
 //
@@ -58,11 +58,18 @@ Deno.serve(async req => {
   }
 
   const sb = createClient(env('SUPABASE_URL')!, env('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-  const { data: existing, error } = await sb.from('events').select('id,date,name,kind,start_time,end_time').gte('date', from);
+  const BASE = 'id,date,name,kind,start_time,end_time';
+  let withDescription = true;
+  let { data: existing, error } = await sb.from('events').select(BASE + ',description').gte('date', from);
+  if (error && /description/.test(error.message)) {
+    // Colonne absente : exécuter la dernière version de supabase/schema.sql. En attendant, on synchronise sans.
+    withDescription = false;
+    ({ data: existing, error } = await sb.from('events').select(BASE).gte('date', from));
+  }
   if (error) return json(500, { error: 'lecture du calendrier impossible', detail: error.message });
 
-  const plan = planSync(occurrences, existing as ExistingEvent[], from);
-  if (body.dry_run) return json(200, { dry_run: true, from, to, ...plan });
+  const plan = planSync(occurrences, existing as ExistingEvent[], from, { withDescription });
+  if (body.dry_run) return json(200, { dry_run: true, from, to, with_description: withDescription, ...plan });
 
   // 3. Écritures minimales (le sujet éventuellement choisi dans le Cockpit n'est pas dans la charge utile)
   if (plan.upserts.length) {
@@ -73,5 +80,5 @@ Deno.serve(async req => {
     const { error: e2 } = await sb.from('events').delete().in('id', plan.deletes).like('id', `${OUTLOOK_PREFIX}%`);
     if (e2) return json(500, { error: 'suppression impossible', detail: e2.message });
   }
-  return json(200, { ok: true, from, to, created_or_updated: plan.upserts.length, deleted: plan.deletes.length, duplicates_skipped: plan.duplicates, total: plan.total });
+  return json(200, { ok: true, from, to, with_description: withDescription, created_or_updated: plan.upserts.length, deleted: plan.deletes.length, duplicates_skipped: plan.duplicates, total: plan.total });
 });

@@ -105,6 +105,18 @@ function TaskEditor({ initial, isNew, onClose }: { initial: Task; isNew: boolean
   );
 }
 
+/** Texte en lecture seule avec liens cliquables (description Outlook). */
+function Linkified({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s<>"]+)/g);
+  return (
+    <p className="event-desc">
+      {parts.map((p, i) => i % 2
+        ? <a key={i} href={p} target="_blank" rel="noopener noreferrer">{/teams\.microsoft\.com/.test(p) ? 'Rejoindre la réunion Teams' : p}</a>
+        : p)}
+    </p>
+  );
+}
+
 function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: boolean; onClose: () => void }) {
   const { saveEvent, deleteEvent, toast, subject } = useStore();
   const [e, setE] = useState(initial);
@@ -144,6 +156,11 @@ function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: bo
           <datalist id="event-kinds">{EVENT_KINDS.map(k => <option key={k} value={k} />)}</datalist>
         </label>
         <label className="full">Sujet<SubjectSelect value={e.subject_id} onChange={v => set({ subject_id: v })} /></label>
+        {fromOutlook ? (
+          e.description ? <div className="full"><span className="label">Description</span><Linkified text={e.description} /></div> : null
+        ) : features.eventDescription && (
+          <label className="full">Description<textarea value={e.description ?? ''} onChange={ev => set({ description: ev.target.value })} placeholder="Ordre du jour, notes…" /></label>
+        )}
         <button hidden />
       </form>
     </Modal>

@@ -42,6 +42,7 @@ create table if not exists public.events (
   kind        text not null default 'Événement',
   start_time  time,
   end_time    time,
+  description text not null default '',
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
@@ -49,6 +50,8 @@ create table if not exists public.events (
 -- Migration : heures des événements (pour les bases créées avant leur ajout)
 alter table public.events add column if not exists start_time time;
 alter table public.events add column if not exists end_time   time;
+-- Migration : description des événements (importée depuis Outlook ou saisie à la main)
+alter table public.events add column if not exists description text not null default '';
 
 create index if not exists tasks_subject_idx  on public.tasks(subject_id);
 create index if not exists events_subject_idx on public.events(subject_id);

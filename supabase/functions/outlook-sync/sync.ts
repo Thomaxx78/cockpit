@@ -4,9 +4,9 @@
 // deno-lint-ignore no-explicit-any
 type ICALModule = any;
 
-export type Occurrence = { key: string; date: string; name: string; start_time: string | null; end_time: string | null };
-export type ExistingEvent = { id: string; date: string; name: string; kind: string; start_time: string | null; end_time: string | null };
-export type OutlookRow = { id: string; date: string; name: string; kind: 'Outlook'; start_time: string | null; end_time: string | null };
+export type Occurrence = { key: string; date: string; name: string; start_time: string | null; end_time: string | null; description: string };
+export type ExistingEvent = { id: string; date: string; name: string; kind: string; start_time: string | null; end_time: string | null; description?: string | null };
+export type OutlookRow = { id: string; date: string; name: string; kind: 'Outlook'; start_time: string | null; end_time: string | null; description?: string };
 
 export const OUTLOOK_PREFIX = 'ol-';
 
@@ -19,6 +19,27 @@ function paris(d: Date) {
 }
 
 const addDays = (d: string, n: number) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+
+export const MAX_DESCRIPTION = 4000;
+
+/**
+ * Description lisible d'une réunion Outlook :
+ * - le long bloc d'invitation Teams (après la ligne de soulignés) est réduit à son lien de connexion ;
+ * - espaces et lignes vides superflus retirés, longueur bornée.
+ */
+export function cleanDescription(raw: unknown) {
+  let text = String(raw ?? '').replace(/\r\n?/g, '\n').replace(/ /g, ' ');
+  const sep = text.search(/^_{10,}\s*$/m);
+  if (sep >= 0) {
+    const block = text.slice(sep);
+    if (/teams/i.test(block)) {
+      const link = block.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"]+/)?.[0];
+      text = text.slice(0, sep).trimEnd() + (link ? `\n\nRéunion Teams : ${link}` : '');
+    }
+  }
+  text = text.split('\n').map(l => l.trimEnd()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return text.length > MAX_DESCRIPTION ? text.slice(0, MAX_DESCRIPTION - 1).trimEnd() + '…' : text;
+}
 
 /** Hachage stable et court (FNV-1a 2×32 bits) pour des identifiants d'événements déterministes. */
 export function stableId(key: string) {
@@ -51,19 +72,20 @@ export function parseOutlook(ICAL: ICALModule, ics: string, from: string, to: st
   const push = (key: string, item: ICALModule, start: ICALModule, end: ICALModule) => {
     if (cancelled(item.component)) return;
     const name = String(item.summary || 'Occupé').trim().slice(0, 160);
+    const description = cleanDescription(item.description);
     if (start.isDate) {
       // Journée(s) entière(s) : une entrée par jour (14 jours maximum).
       const first = start.toString().slice(0, 10);
       const last = end ? addDays(end.toString().slice(0, 10), -1) : first;
       for (let d = first, i = 0; d <= last && i < 14; d = addDays(d, 1), i++) {
-        if (d >= from && d <= to) out.push({ key: `${key}|${d}`, date: d, name, start_time: null, end_time: null });
+        if (d >= from && d <= to) out.push({ key: `${key}|${d}`, date: d, name, start_time: null, end_time: null, description });
       }
       return;
     }
     const s = paris(start.toJSDate());
     const e = end ? paris(end.toJSDate()) : null;
     if (s.date < from || s.date > to) return;
-    out.push({ key, date: s.date, name, start_time: s.time, end_time: e && e.date === s.date && e.time > s.time ? e.time : null });
+    out.push({ key, date: s.date, name, start_time: s.time, end_time: e && e.date === s.date && e.time > s.time ? e.time : null, description });
   };
 
   const windowEnd = ICAL.Time.fromDateString(addDays(to, 1));
@@ -95,7 +117,7 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').to
  * - Seules les lignes nouvelles ou modifiées sont écrites ; le sujet choisi dans le Cockpit n'est jamais écrasé.
  * - Les événements Outlook disparus du flux (annulés, déplacés) sont supprimés, dans la fenêtre seulement.
  */
-export function planSync(occs: Occurrence[], existing: ExistingEvent[], from: string) {
+export function planSync(occs: Occurrence[], existing: ExistingEvent[], from: string, { withDescription = true } = {}) {
   const manual = existing.filter(e => !e.id.startsWith(OUTLOOK_PREFIX));
   const isDuplicate = (o: Occurrence) => manual.some(m =>
     m.date === o.date && (o.start_time
@@ -108,12 +130,16 @@ export function planSync(occs: Occurrence[], existing: ExistingEvent[], from: st
   for (const o of occs) {
     if (isDuplicate(o)) { duplicates++; continue; }
     const id = stableId(o.key);
-    wanted.set(id, { id, date: o.date, name: o.name, kind: 'Outlook', start_time: o.start_time, end_time: o.end_time });
+    const row: OutlookRow = { id, date: o.date, name: o.name, kind: 'Outlook', start_time: o.start_time, end_time: o.end_time };
+    // Sans la colonne « description » (migration non exécutée), on n'envoie pas le champ.
+    if (withDescription) row.description = o.description;
+    wanted.set(id, row);
   }
 
   const upserts = [...wanted.values()].filter(r => {
     const e = byId.get(r.id);
-    return !e || e.date !== r.date || e.name !== r.name || (e.start_time?.slice(0, 5) ?? null) !== r.start_time || (e.end_time?.slice(0, 5) ?? null) !== r.end_time;
+    return !e || e.date !== r.date || e.name !== r.name || (e.start_time?.slice(0, 5) ?? null) !== r.start_time || (e.end_time?.slice(0, 5) ?? null) !== r.end_time ||
+      (withDescription && (e.description ?? '') !== r.description);
   });
   const deletes = existing.filter(e => e.id.startsWith(OUTLOOK_PREFIX) && e.date >= from && !wanted.has(e.id)).map(e => e.id);
   return { upserts, deletes, duplicates, total: wanted.size };

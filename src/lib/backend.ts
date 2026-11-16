@@ -23,18 +23,19 @@ const TABLES: Table[] = ['subjects', 'tasks', 'events'];
 const COLUMNS: Record<Table, string[]> = {
   subjects: ['id', 'name', 'category', 'status', 'summary', 'confirmed', 'hypothesis', 'questions', 'people', 'next_step', 'due_date', 'origin', 'color', 'notes', 'position'],
   tasks: ['id', 'name', 'subject_id', 'status', 'priority', 'owner', 'due_date', 'position'],
-  events: ['id', 'date', 'name', 'subject_id', 'kind', 'start_time', 'end_time'],
+  events: ['id', 'date', 'name', 'subject_id', 'kind', 'start_time', 'end_time', 'description'],
 };
+const TEXT_DEFAULTS: Record<string, string> = { description: '' };
 const NULLABLE = ['due_date', 'subject_id', 'start_time', 'end_time'];
 const TIME_COLUMNS = ['start_time', 'end_time'];
 
 /** Faux tant que la migration des heures (supabase/schema.sql) n'a pas été exécutée. */
-export const features = { eventTimes: true };
+export const features = { eventTimes: true, eventDescription: true };
 
 export function clean<T extends Table>(table: T, row: Record<string, unknown>): Row<T> {
   const out: Record<string, unknown> = {};
   for (const c of COLUMNS[table]) {
-    let v = row[c] === '' && NULLABLE.includes(c) ? null : row[c] ?? null;
+    let v = row[c] === '' && NULLABLE.includes(c) ? null : row[c] ?? TEXT_DEFAULTS[c] ?? null;
     if (TIME_COLUMNS.includes(c) && typeof v === 'string') v = v.slice(0, 5); // "15:30:00" → "15:30"
     out[c] = v;
   }
@@ -44,6 +45,7 @@ export function clean<T extends Table>(table: T, row: Record<string, unknown>): 
 const forDb = (table: Table, row: Record<string, unknown>) => {
   const r = clean(table, row) as Record<string, unknown>;
   if (table === 'events' && !features.eventTimes) for (const c of TIME_COLUMNS) delete r[c];
+  if (table === 'events' && !features.eventDescription) delete r.description;
   return r;
 };
 
@@ -59,6 +61,7 @@ function supabaseBackend(sb: SupabaseClient): Backend {
       const err = s.error || t.error || e.error;
       if (err) throw err;
       if (e.data!.length && !('start_time' in e.data![0])) features.eventTimes = false;
+      if (e.data!.length && !('description' in e.data![0])) features.eventDescription = false;
       return {
         subjects: s.data!.map(r => clean('subjects', r)),
         tasks: t.data!.map(r => clean('tasks', r)),
@@ -70,6 +73,10 @@ function supabaseBackend(sb: SupabaseClient): Backend {
       let { error } = await sb.from(table).upsert(rows.map(r => forDb(table, r)));
       if (error && table === 'events' && features.eventTimes && /start_time|end_time/.test(error.message)) {
         features.eventTimes = false; // colonnes absentes : on réessaie sans les heures
+        ({ error } = await sb.from(table).upsert(rows.map(r => forDb(table, r))));
+      }
+      if (error && table === 'events' && features.eventDescription && /description/.test(error.message)) {
+        features.eventDescription = false; // colonne absente : on réessaie sans la description
         ({ error } = await sb.from(table).upsert(rows.map(r => forDb(table, r))));
       }
       if (error) throw error;
