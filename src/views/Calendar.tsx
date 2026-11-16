@@ -99,7 +99,7 @@ function DayView({ day, items, today }: { day: string; items: Item[]; today: str
               <button
                 key={b.it.key}
                 // Moins de 50 min : heure et nom sur une ligne ; moins de 1h30 : pas de sujet.
-                className={`dv-block ${b.it.end! - b.it.start! < 50 ? 'short' : ''}`}
+                className={`dv-block ${b.it.end! - b.it.start! < 50 ? 'short' : b.it.end! - b.it.start! < 90 ? 'compact' : ''}`}
                 style={blockStyle(b, '4px')}
                 onClick={b.it.open}
                 title={`${b.it.time} · ${b.it.name}`}
@@ -235,7 +235,7 @@ export function Calendar() {
                 )}
                 {(timed.length > 0 || key === today) && (
                   <div className="day-track">
-                    {place(timed, CELL_START, CELL_END, 18).map(b => (
+                    {place(timed, CELL_START, CELL_END, 24).map(b => (
                       <button
                         key={b.it.key}
                         className="evt-block"

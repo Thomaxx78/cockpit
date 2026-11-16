@@ -1018,3 +1018,7 @@ button.daynum:hover { background: var(--sunken); }
 }
 .dv-block.short { flex-direction: row; align-items: center; gap: 8px; padding-top: 2px; padding-bottom: 2px; white-space: nowrap; }
 .dv-block.short span { overflow: hidden; text-overflow: ellipsis; }
+/* Une ligne lisible quelle que soit la durée : jamais de texte coupé en hauteur */
+.evt-block { min-height: 16px; white-space: nowrap; text-overflow: ellipsis; line-height: 14px; padding-top: 1px; padding-bottom: 1px; }
+.dv-block { min-height: 24px; }
+.dv-block.compact span, .dv-block.compact b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
