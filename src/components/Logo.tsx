@@ -15,7 +15,8 @@ function skyAt(h: number) {
   const span = day ? DAY_END - DAY_START : 24 - (DAY_END - DAY_START);
   const since = day ? h - DAY_START : (h - DAY_END + 24) % 24;
   const t = since / span; // 0 = lever, 1 = coucher
-  return { day, x: 4 + 24 * t, y: 23 - 16 * Math.sin(Math.PI * t) };
+  // Aux extrémités l'astre est sous l'horizon (y > 25 + rayon) : le passage soleil ↔ lune est invisible.
+  return { day, x: 6 + 20 * t, y: 29.5 - 22.5 * Math.sin(Math.PI * t) };
 }
 
 const realHour = () => { const d = new Date(); return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; };
@@ -43,7 +44,8 @@ function useSkyHour() {
 
 export function Logo({ size = 20 }: { size?: number }) {
   const { day, x, y } = skyAt(useSkyHour());
-  const mask = `lune${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const mask = `lune${uid}`, sky = `ciel${uid}`;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
       <defs>
@@ -52,11 +54,15 @@ export function Logo({ size = 20 }: { size?: number }) {
           <circle r="3.2" fill="#fff" />
           <circle cx="1.6" cy="-1.1" r="2.7" fill="#000" />
         </mask>
+        {/* ciel = tout ce qui est au-dessus de l'horizon (pied des montagnes) */}
+        <clipPath id={sky}><rect x="-8" y="-8" width="48" height="33" /></clipPath>
       </defs>
-      <g transform={`translate(${x.toFixed(2)} ${y.toFixed(2)})`}>
-        {day
-          ? <circle r="3.4" fill="#ffc94d" />
-          : <circle r="3.2" fill="var(--logo-moon)" mask={`url(#${mask})`} />}
+      <g clipPath={`url(#${sky})`}>
+        <g transform={`translate(${x.toFixed(2)} ${y.toFixed(2)})`}>
+          {day
+            ? <circle r="3.4" fill="#ffc94d" />
+            : <circle r="3.2" fill="var(--logo-moon)" mask={`url(#${mask})`} />}
+        </g>
       </g>
       <path d="M3 25 L12.5 9.5 L18 18.5 L21 14 L29 25 Z" fill="currentColor" />
       {/* versant à l'ombre du grand sommet */}
