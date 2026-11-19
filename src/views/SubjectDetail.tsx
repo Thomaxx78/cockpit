@@ -77,7 +77,7 @@ export function SubjectDetail({ id }: { id: string }) {
   const [opened, setOpened] = useState<(keyof Subject)[]>([]);
   const [allHistory, setAllHistory] = useState(false);
 
-  if (!s) return <div className="page"><Empty>Ce sujet n'existe plus. <button className="link" onClick={() => go('sujets')}>Retour aux sujets</button></Empty></div>;
+  if (!s) return <div className="page"><Empty>Ce sujet n'existe plus. <button className="link" onClick={() => go('')}>Retour au calendrier</button></Empty></div>;
 
   const set = (p: Partial<Subject>) => latest.current && saveSubject({ ...latest.current, ...p });
   const tasks = db.tasks.filter(t => t.subject_id === id).sort((a, b) => Number(a.status === 'Terminé') - Number(b.status === 'Terminé') || a.position - b.position);
@@ -104,7 +104,7 @@ export function SubjectDetail({ id }: { id: string }) {
 
   return (
     <div className="page" style={{ ['--c' as string]: s.color }}>
-      <button className="btn ghost back" onClick={() => go('sujets')}><ArrowLeft size={16} /> Tous les sujets</button>
+      <button className="btn ghost back" onClick={() => (window.history.length > 1 ? window.history.back() : go(''))}><ArrowLeft size={16} /> Retour</button>
 
       <section className="hero">
         <div className="hero-top">
@@ -233,7 +233,7 @@ export function SubjectDetail({ id }: { id: string }) {
 
       <button className="btn danger ghost delete-subject" onClick={() => {
         if (confirm(`Supprimer le sujet « ${s.name} » ?\nSes actions et événements sont conservés (sans sujet).`)) {
-          deleteSubject(id); toast('Sujet supprimé'); go('sujets');
+          deleteSubject(id); toast('Sujet supprimé'); go('');
         }
       }}><Trash2 size={15} /> Supprimer ce sujet</button>
     </div>

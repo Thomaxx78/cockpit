@@ -1,45 +1,35 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, FolderOpen, HardDrive, History as HistoryIcon, LayoutDashboard, ListChecks,
-  LogOut, Search, Upload,
+  AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, HardDrive, History as HistoryIcon, LogOut, Search, Upload,
 } from 'lucide-react';
 import { signOut } from './components/Auth';
 import { NewMenu, useCreate } from './components/NewMenu';
 import { MoreMenu } from './components/MoreMenu';
+import { Logo } from './components/Logo';
 import { Palette } from './components/Palette';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
-import { isActive } from './lib/types';
 import { useTheme } from './lib/theme';
-import { download, go, todayIso, useRoute } from './lib/utils';
-import { Dashboard } from './views/Dashboard';
+import { download, go, useRoute } from './lib/utils';
+import { Calendar } from './views/Calendar';
 import './styles/shell.css';
 
 /* ---------- Découpage du code ----------
-   Dashboard (page d'accueil) reste dans le bundle principal ; les autres vues et
+   Calendrier (page d'accueil) reste dans le bundle principal ; les autres vues et
    l'assistant IA sont chargés à la demande, puis préchargés en tâche de fond. */
 const loaders = {
-  sujets: () => import('./views/Subjects'),
-  sujet: () => import('./views/SubjectDetail'),
+  sujets: () => import('./views/SubjectDetail'),
   kanban: () => import('./views/Kanban'),
-  calendrier: () => import('./views/Calendar'),
-  actions: () => import('./views/Actions'),
   historique: () => import('./views/History'),
   ai: () => import('./components/AIChat'),
 };
-const Subjects = lazy(() => loaders.sujets().then(m => ({ default: m.Subjects })));
-const SubjectDetail = lazy(() => loaders.sujet().then(m => ({ default: m.SubjectDetail })));
+const SubjectDetail = lazy(() => loaders.sujets().then(m => ({ default: m.SubjectDetail })));
 const Kanban = lazy(() => loaders.kanban().then(m => ({ default: m.Kanban })));
-const Calendar = lazy(() => loaders.calendrier().then(m => ({ default: m.Calendar })));
-const Actions = lazy(() => loaders.actions().then(m => ({ default: m.Actions })));
 const History = lazy(() => loaders.historique().then(m => ({ default: m.History })));
 const AIChat = lazy(() => loaders.ai().then(m => ({ default: m.AIChat })));
 
 /** Précharge le code d'une page (survol / focus d'un lien). Erreur réseau ignorée : le lazy réessaiera. */
-const preload = (path: string) => {
-  const load = path === 'sujets' ? [loaders.sujets, loaders.sujet] : [loaders[path as keyof typeof loaders]];
-  load.forEach(l => l?.().catch(() => {}));
-};
+const preload = (path: string) => { loaders[path as keyof typeof loaders]?.().catch(() => {}); };
 /** Après le premier affichage, quand le navigateur est inactif : précharge toutes les vues. */
 const preloadAllWhenIdle = () => {
   const run = () => Object.values(loaders).forEach(l => l().catch(() => {}));
@@ -47,26 +37,23 @@ const preloadAllWhenIdle = () => {
   if (ric) ric(run, { timeout: 4000 }); else setTimeout(run, 1500);
 };
 
+/** Menu principal : seulement les deux vues utilisées au quotidien. « Historique » passe par le menu « ⋯ ». */
 const NAV = [
-  ['', 'Vue d’ensemble', LayoutDashboard, 'Accueil'],
-  ['sujets', 'Sujets', FolderOpen, 'Sujets'],
+  ['', 'Calendrier', CalendarDays, 'Agenda'],
   ['kanban', 'Kanban', Columns3, 'Kanban'],
-  ['calendrier', 'Calendrier', CalendarDays, 'Agenda'],
-  ['actions', 'Actions', ListChecks, 'Actions'],
-  ['historique', 'Historique', HistoryIcon, 'Historique'],
 ] as const;
-/** Barre d'onglets mobile : 5 onglets maximum ; « Historique » passe par le menu « ⋯ ». */
-const TABS = NAV.filter(([p]) => p !== 'historique');
-const PAGES: [string, string][] = NAV.map(([p, l]) => [p, l]);
+const PAGES: [string, string][] = [...NAV.map(([p, l]): [string, string] => [p, l]), ['historique', 'Historique']];
 const splash = <div className="splash"><div className="spinner" /></div>;
 
 export function App({ email }: { email: string | null }) {
-  const { parts, query } = useRoute();
+  const { parts } = useRoute();
   const store = useStore();
   const { db, ready, loadError, saving, saveError, backendKind, toasts, importDB, reload } = store;
   const [palette, setPalette] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const page = parts[0] ?? '';
+  // Anciennes adresses (#/calendrier, #/sujets, #/actions…) : on retombe sur le calendrier.
+  const raw = parts[0] ?? '';
+  const page = ['kanban', 'historique'].includes(raw) || (raw === 'sujets' && parts[1]) ? raw : '';
   const currentSubject = page === 'sujets' && parts[1] ? parts[1] : undefined;
   const create = useCreate(currentSubject);
   useTheme(); // garde data-theme et theme-color à jour (changement du système, autre onglet)
@@ -110,12 +97,9 @@ export function App({ email }: { email: string | null }) {
     </div></div>
   );
   else if (page === 'sujets' && parts[1]) view = <SubjectDetail key={parts[1]} id={parts[1]} />;
-  else if (page === 'sujets') view = <Subjects key={query.toString()} initialStatus={query.get('statut') ?? undefined} />;
   else if (page === 'kanban') view = <Kanban />;
-  else if (page === 'calendrier') view = <Calendar />;
-  else if (page === 'actions') view = <Actions />;
   else if (page === 'historique') view = <History />;
-  else view = <Dashboard />;
+  else view = <Calendar />;
 
   const sync = backendKind === 'local'
     ? <span className="sync local" title="Supabase non configuré : les données restent dans ce navigateur"><HardDrive size={14} /> Local</span>
@@ -126,16 +110,12 @@ export function App({ email }: { email: string | null }) {
   const syncCompact = backendKind === 'supabase' && !saveError && !saving
     ? <span className="sync ok compact" title="Synchronisé" aria-label="Synchronisé"><Check size={15} /></span>
     : sync;
-  const today = todayIso();
-  const openTasks = db.tasks.filter(t => isActive(t.status));
-  const lateCount = openTasks.filter(t => t.due_date && t.due_date < today).length;
 
   return (
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandmark">✦</div>
-          <div className="brandtext">Sapaudia<small>Cockpit IA</small></div>
+          <div className="brandmark" title="Sapaudia"><Logo size={24} /></div>
         </div>
         <nav>
           {NAV.map(([path, label, Icon]) => (
@@ -144,10 +124,6 @@ export function App({ email }: { email: string | null }) {
               onPointerEnter={() => preload(path)} onFocus={() => preload(path)}
             >
               <Icon size={18} /><span>{label}</span>
-              {path === 'actions' && <>
-                {lateCount > 0 && <span className="nav-late" title={`${lateCount} en retard`}>{lateCount}</span>}
-                <span className="nav-count" title={`${openTasks.length} ouvertes`}>{openTasks.length}</span>
-              </>}
             </a>
           ))}
         </nav>
@@ -170,8 +146,8 @@ export function App({ email }: { email: string | null }) {
       <div className="content">
         <header className="topbar">
           <div className="top-title" aria-hidden="true">
-            <span className="brandmark small">✦</span>
-            <span>{currentSubject ? 'Sujet' : NAV.find(([p]) => p === page)?.[1] ?? 'Cockpit'}</span>
+            <span className="brandmark small"><Logo size={19} /></span>
+            <span>{currentSubject ? 'Sujet' : PAGES.find(([p]) => p === page)?.[1] ?? 'Cockpit'}</span>
           </div>
           <button className="searchbar" onClick={() => setPalette(true)} aria-label="Rechercher (Ctrl K)">
             <Search size={16} /> <span>Rechercher…</span> <kbd>Ctrl K</kbd>
@@ -203,7 +179,7 @@ export function App({ email }: { email: string | null }) {
       </div>
 
       <nav className="tabbar" aria-label="Navigation principale">
-        {TABS.map(([path, , Icon, short]) => (
+        {NAV.map(([path, , Icon, short]) => (
           <a
             key={path} href={'#/' + path} className={page === path ? 'active' : ''} aria-current={page === path ? 'page' : undefined}
             onPointerDown={() => preload(path)}

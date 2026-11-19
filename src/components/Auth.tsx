@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js';
 import { Delete } from 'lucide-react';
 import { supabase } from '../lib/backend';
+import { Logo } from './Logo';
 
 /**
  * Le code n'est stocké nulle part dans le front : c'est le mot de passe d'un compte Supabase unique
@@ -91,7 +92,7 @@ function PinLock() {
       </div>
 
       <div className="lock-center">
-        <div className="lock-icon">✦</div>
+        <div className="lock-icon"><Logo size={32} /></div>
         <div className={`lock-msg ${state === 'error' ? 'is-error' : ''}`}>{state === 'busy' ? 'Vérification…' : state === 'ok' ? 'Déverrouillé' : message}</div>
         <div className={`pin-dots ${state}`}>
           {Array.from({ length: PIN_LENGTH }, (_, i) => <span key={i} className={i < pin.length ? 'on' : ''} />)}

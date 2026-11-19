@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CalendarPlus, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useEditors } from '../components/editors';
+import { NextMeeting } from '../components/NextMeeting';
 import { Empty } from '../components/ui';
 import { useStore } from '../lib/store';
 import { dayMonth, iso, MOBILE, timeRange, todayIso, useMedia } from '../lib/utils';
@@ -183,6 +184,8 @@ export function Calendar() {
           <button className="btn desktop-only" onClick={() => editEvent(null, { date: today })}><CalendarPlus size={16} /> Événement</button>
         </div>
       </div>
+
+      <NextMeeting events={db.events} />
 
       <div className="calendar" role="group" aria-label={`Calendrier ${month.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`}>
         {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="dow" aria-hidden="true">{d}</div>)}

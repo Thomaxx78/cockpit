@@ -50,7 +50,7 @@ export function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(u), 1000);
 }
 
-/** Routage par hash : #/, #/sujets, #/sujets/moon, #/kanban, #/calendrier, #/actions */
+/** Routage par hash : #/ (calendrier), #/kanban, #/historique, #/sujets/moon */
 export function useRoute() {
   const get = () => {
     const [path, qs] = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('?');
