@@ -264,7 +264,7 @@ textarea { resize: vertical; }
   box-shadow: var(--brandmark-shadow);
 }
 .brandmark.big { width: 52px; height: 52px; font-size: var(--fs-2xl); border-radius: 15px; margin: 0 auto 6px; }
-.brandname { color: var(--side-ink-strong); font: 800 23px/1 Outfit, Inter, sans-serif; letter-spacing: -.3px; } /* police chargée seulement pour ce mot (index.html) */
+.brandname { color: var(--side-ink-strong); font: 900 26px/1 Outfit, Inter, sans-serif; letter-spacing: -.5px; } /* police chargée seulement pour ce mot (index.html) */
 .nav {
   display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: var(--r-md);
   font-weight: 500; transition: background .15s, color .15s;
