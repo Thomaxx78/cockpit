@@ -116,7 +116,7 @@ export function App({ email }: { email: string | null }) {
       <aside className="sidebar">
         <div className="brand">
           <div className="brandmark"><Logo size={30} /></div>
-          <span className="brandname">Sapaudia</span>
+          <span className="brandname">Cockpit</span>
         </div>
         <nav>
           {NAV.map(([path, label, Icon]) => (

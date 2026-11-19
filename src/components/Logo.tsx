@@ -1,4 +1,4 @@
-/* Logo Sapaudia : deux sommets (la Savoie) et le soleil, en aplat.
+/* Logo du Cockpit : deux sommets et le soleil, en aplat.
    Dessiné à la main sur une grille 32×32, sans dégradé ni étoile. */
 export function Logo({ size = 20 }: { size?: number }) {
   return (
