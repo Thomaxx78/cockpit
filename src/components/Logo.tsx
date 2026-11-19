@@ -16,7 +16,8 @@ function skyAt(h: number) {
   const since = day ? h - DAY_START : (h - DAY_END + 24) % 24;
   const t = since / span; // 0 = lever, 1 = coucher
   // Aux extrémités l'astre est sous l'horizon (y > 25 + rayon) : le passage soleil ↔ lune est invisible.
-  return { day, x: 6 + 20 * t, y: 29.5 - 22.5 * Math.sin(Math.PI * t) };
+  // Puissance < 1 : montée et descente raides, l'astre reste caché très peu de temps entre soleil et lune.
+  return { day, x: 6 + 20 * t, y: 29.5 - 22.5 * Math.sin(Math.PI * t) ** 0.4 };
 }
 
 const realHour = () => { const d = new Date(); return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; };
