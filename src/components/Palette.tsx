@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CornerDownLeft, FileText, ListChecks, Search } from 'lucide-react';
+import { CornerDownLeft, FileText, ListChecks, NotebookPen, Search } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { go } from '../lib/utils';
 import { useEditors } from './editors';
 import { Dot } from './ui';
 
-type Result = { key: string; label: string; hint: string; color?: string; icon: 'page' | 'subject' | 'task'; run: () => void };
+type Result = { key: string; label: string; hint: string; color?: string; icon: 'page' | 'subject' | 'task' | 'note'; run: () => void };
 
 export function Palette({ onClose, pages }: { onClose: () => void; pages: [string, string][] }) {
   const { db, subject } = useStore();
@@ -22,6 +22,9 @@ export function Palette({ onClose, pages }: { onClose: () => void; pages: [strin
       ...db.subjects.filter(s => match(`${s.name} ${s.category} ${s.people}`)).map(s => ({
         key: s.id, label: s.name, hint: s.category, color: s.color, icon: 'subject' as const, run: () => go('sujets/' + s.id),
       })),
+      ...(n ? db.notes.filter(x => x.kind === 'file' && match(`${x.name} ${x.content}`)).map(x => ({
+        key: x.id, label: x.name, hint: 'Note', icon: 'note' as const, run: () => go('notes/' + x.id),
+      })) : []),
       ...(n ? db.tasks.filter(t => match(`${t.name} ${t.owner}`)).map(t => ({
         key: t.id, label: t.name, hint: subject(t.subject_id)?.name ?? 'Action', color: subject(t.subject_id)?.color, icon: 'task' as const, run: () => editTask(t),
       })) : []),
@@ -57,7 +60,7 @@ export function Palette({ onClose, pages }: { onClose: () => void; pages: [strin
         <div className="palette-list" ref={listRef}>
           {results.map((r, i) => (
             <button key={r.key} className={i === sel ? 'on' : ''} onMouseMove={() => setSel(i)} onClick={() => pick(r)}>
-              {r.icon === 'page' ? <FileText size={15} /> : r.icon === 'task' ? <ListChecks size={15} /> : <Dot color={r.color} size={10} />}
+              {r.icon === 'page' ? <FileText size={15} /> : r.icon === 'note' ? <NotebookPen size={15} /> : r.icon === 'task' ? <ListChecks size={15} /> : <Dot color={r.color} size={10} />}
               <span className="palette-label">{r.label}</span>
               <span className="palette-hint">{r.hint}</span>
               {i === sel && <CornerDownLeft size={14} />}

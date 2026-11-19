@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
-  AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, HardDrive, History as HistoryIcon, LogOut, Search, Upload,
+  AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, HardDrive, History as HistoryIcon, LogOut, NotebookPen, Search, Upload,
 } from 'lucide-react';
 import { signOut } from './components/Auth';
 import { NewMenu, useCreate } from './components/NewMenu';
@@ -20,11 +20,13 @@ import './styles/shell.css';
 const loaders = {
   sujets: () => import('./views/SubjectDetail'),
   kanban: () => import('./views/Kanban'),
+  notes: () => import('./views/Notes'),
   historique: () => import('./views/History'),
   ai: () => import('./components/AIChat'),
 };
 const SubjectDetail = lazy(() => loaders.sujets().then(m => ({ default: m.SubjectDetail })));
 const Kanban = lazy(() => loaders.kanban().then(m => ({ default: m.Kanban })));
+const Notes = lazy(() => loaders.notes().then(m => ({ default: m.Notes })));
 const History = lazy(() => loaders.historique().then(m => ({ default: m.History })));
 const AIChat = lazy(() => loaders.ai().then(m => ({ default: m.AIChat })));
 
@@ -41,6 +43,7 @@ const preloadAllWhenIdle = () => {
 const NAV = [
   ['', 'Calendrier', CalendarDays, 'Agenda'],
   ['kanban', 'Kanban', Columns3, 'Kanban'],
+  ['notes', 'Notes', NotebookPen, 'Notes'],
 ] as const;
 const PAGES: [string, string][] = [...NAV.map(([p, l]): [string, string] => [p, l]), ['historique', 'Historique']];
 const splash = <div className="splash"><div className="spinner" /></div>;
@@ -53,7 +56,7 @@ export function App({ email }: { email: string | null }) {
   const fileRef = useRef<HTMLInputElement>(null);
   // Anciennes adresses (#/calendrier, #/sujets, #/actions…) : on retombe sur le calendrier.
   const raw = parts[0] ?? '';
-  const page = ['kanban', 'historique'].includes(raw) || (raw === 'sujets' && parts[1]) ? raw : '';
+  const page = ['kanban', 'notes', 'historique'].includes(raw) || (raw === 'sujets' && parts[1]) ? raw : '';
   const currentSubject = page === 'sujets' && parts[1] ? parts[1] : undefined;
   const create = useCreate(currentSubject);
   useTheme(); // garde data-theme et theme-color à jour (changement du système, autre onglet)
@@ -98,6 +101,7 @@ export function App({ email }: { email: string | null }) {
   );
   else if (page === 'sujets' && parts[1]) view = <SubjectDetail key={parts[1]} id={parts[1]} />;
   else if (page === 'kanban') view = <Kanban />;
+  else if (page === 'notes') view = <Notes id={parts[1]} />;
   else if (page === 'historique') view = <History />;
   else view = <Calendar />;
 
@@ -168,7 +172,8 @@ export function App({ email }: { email: string | null }) {
           </div></div>
         )}
 
-        <main key={page + (parts[1] ?? '')} className="main"><Suspense fallback={splash}>{view}</Suspense></main>
+        {/* Notes : pas de remontage à chaque note ouverte (l'arborescence reste en place). */}
+        <main key={page === 'notes' ? page : page + (parts[1] ?? '')} className="main"><Suspense fallback={splash}>{view}</Suspense></main>
       </div>
 
       <nav className="tabbar" aria-label="Navigation principale">

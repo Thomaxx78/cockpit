@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Activity, DB, Row, Table } from './types';
+import type { Activity, DB, Note, Row, Table } from './types';
 import { SEED } from './seed';
 
 export type Change = { table: Table; type: 'upsert' | 'delete'; row: { id: string } & Record<string, unknown> };
@@ -14,6 +14,16 @@ export interface Backend {
   loadActivity(sinceIso: string): Promise<Activity[]>;
   /** Nouvelles entrées d'historique (temps réel en Supabase, écritures locales sinon). */
   subscribeActivity(cb: (a: Activity) => void): () => void;
+}
+
+/** Identifiants d'un élément et de tout ce qu'il contient (suppression d'un dossier). */
+export function noteDescendants(notes: Note[], id: string) {
+  const ids = new Set([id]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const n of notes) if (n.parent_id && ids.has(n.parent_id) && !ids.has(n.id)) { ids.add(n.id); grew = true; }
+  }
+  return ids;
 }
 
 /** Nombre maximal d'entrées d'historique chargées / conservées. */
@@ -43,13 +53,14 @@ const COLUMNS: Record<Table, string[]> = {
   subjects: ['id', 'name', 'category', 'status', 'summary', 'confirmed', 'hypothesis', 'questions', 'people', 'next_step', 'due_date', 'origin', 'color', 'notes', 'position'],
   tasks: ['id', 'name', 'subject_id', 'status', 'priority', 'owner', 'due_date', 'position'],
   events: ['id', 'date', 'name', 'subject_id', 'kind', 'start_time', 'end_time', 'description'],
+  notes: ['id', 'parent_id', 'kind', 'name', 'content', 'task_id', 'position', 'updated_at'],
 };
-const TEXT_DEFAULTS: Record<string, string> = { description: '' };
-const NULLABLE = ['due_date', 'subject_id', 'start_time', 'end_time'];
+const TEXT_DEFAULTS: Record<string, string> = { description: '', content: '' };
+const NULLABLE = ['due_date', 'subject_id', 'start_time', 'end_time', 'parent_id', 'task_id', 'updated_at'];
 const TIME_COLUMNS = ['start_time', 'end_time'];
 
 /** Faux tant que la migration des heures (supabase/schema.sql) n'a pas été exécutée. */
-export const features = { eventTimes: true, eventDescription: true };
+export const features = { eventTimes: true, eventDescription: true, notes: true };
 
 export function clean<T extends Table>(table: T, row: Record<string, unknown>): Row<T> {
   const out: Record<string, unknown> = {};
@@ -72,11 +83,15 @@ function supabaseBackend(sb: SupabaseClient): Backend {
   return {
     kind: 'supabase',
     async load() {
-      const [s, t, e] = await Promise.all([
+      const [s, t, e, n] = await Promise.all([
         sb.from('subjects').select('*').order('position'),
         sb.from('tasks').select('*').order('position'),
         sb.from('events').select('*').order('date'),
+        sb.from('notes').select('*').order('position'),
       ]);
+      // Table des notes absente tant que supabase/schema.sql n'a pas été relancé : le reste fonctionne.
+      features.notes = !n.error;
+      if (n.error) console.warn('Notes indisponibles :', n.error.message);
       const err = s.error || t.error || e.error;
       if (err) throw err;
       if (e.data!.length && !('start_time' in e.data![0])) features.eventTimes = false;
@@ -85,6 +100,7 @@ function supabaseBackend(sb: SupabaseClient): Backend {
         subjects: s.data!.map(r => clean('subjects', r)),
         tasks: t.data!.map(r => clean('tasks', r)),
         events: e.data!.map(r => clean('events', r)),
+        notes: (n.data ?? []).map(r => clean('notes', r)),
       };
     },
     async upsert(table, rows) {
@@ -113,7 +129,14 @@ function supabaseBackend(sb: SupabaseClient): Backend {
         });
       }
       ch.subscribe();
-      return () => { sb.removeChannel(ch); };
+      // Canal séparé pour les notes : une table absente ne gêne pas la synchronisation principale.
+      const chNotes = sb.channel('cockpit-notes');
+      chNotes.on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, p => {
+        if (p.eventType === 'DELETE') cb({ table: 'notes', type: 'delete', row: p.old as Change['row'] });
+        else cb({ table: 'notes', type: 'upsert', row: clean('notes', p.new) as Change['row'] });
+      });
+      chNotes.subscribe();
+      return () => { sb.removeChannel(ch); sb.removeChannel(chNotes); };
     },
     async loadActivity(sinceIso) {
       try {
@@ -141,7 +164,7 @@ function localBackend(): Backend {
   const read = (): DB => {
     try {
       const v = JSON.parse(localStorage.getItem(KEY) || 'null');
-      if (v?.subjects) return v;
+      if (v?.subjects) return { ...v, notes: v.notes ?? [] };
     } catch { /* stockage indisponible */ }
     return structuredClone(SEED);
   };
@@ -192,7 +215,7 @@ function localBackend(): Backend {
       const acts: Entry[] = [];
       for (const r of rows) {
         const i = list.findIndex(x => x.id === r.id);
-        if (table !== 'events') {
+        if (table === 'tasks' || table === 'subjects') {
           const next = r as Record<string, unknown>;
           const prev = i >= 0 ? (list[i] as Record<string, unknown>) : null;
           if (!prev) acts.push(entry(table, next, 'created', null, next.status));
@@ -211,8 +234,10 @@ function localBackend(): Backend {
         db.tasks.forEach(t => { if (t.subject_id === id) t.subject_id = null; });
         db.events.forEach(e => { if (e.subject_id === id) e.subject_id = null; });
       }
+      if (table === 'tasks') db.notes.forEach(n => { if (n.task_id === id) n.task_id = null; });
+      if (table === 'notes') { const gone = noteDescendants(db.notes, id); db.notes = db.notes.filter(n => !gone.has(n.id)); }
       write(db);
-      if (old && table !== 'events') log([entry(table, old, 'deleted', old.status, null)]);
+      if (old && (table === 'tasks' || table === 'subjects')) log([entry(table, old, 'deleted', old.status, null)]);
     },
     subscribe() { return () => {}; },
     async loadActivity(sinceIso) {

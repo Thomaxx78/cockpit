@@ -352,5 +352,6 @@ export const SEED: DB = {
       "start_time": null,
       "end_time": null
     }
-  ]
+  ],
+  notes: [],
 };

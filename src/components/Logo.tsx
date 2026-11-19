@@ -1,15 +1,16 @@
 import { useEffect, useId, useState } from 'react';
 
-/* Logo du Cockpit : deux sommets et un astre qui suit l'heure réelle.
-   Jour (7h–20h) : le soleil se lève à gauche, culmine vers 13h30 et se couche à droite.
-   Nuit : la lune fait le même trajet. L'astre est dessiné derrière les montagnes,
-   il disparaît donc derrière elles au lever et au coucher. */
+/* Logo du Cockpit : deux sommets et un astre qui parcourt le ciel.
+   Jour (7h–20h) : le soleil se lève à gauche, culmine et se couche à droite derrière les sommets.
+   Nuit : la lune fait le même trajet. Le temps est accéléré (une journée = CYCLE_MS) et part
+   de l'heure réelle ; avec « réduire les animations », l'astre reste à sa place réelle. */
 const DAY_START = 7;
 const DAY_END = 20;
+const CYCLE_MS = 60_000;
+const FRAME_MS = 50; // ~20 images/s : fluide sur une si petite icône, sans charger le processeur
 
-/** Position sur l'arc (viewBox 32×32) et nature de l'astre pour une heure donnée. */
-function skyAt(d: Date) {
-  const h = d.getHours() + d.getMinutes() / 60;
+/** Position sur l'arc (viewBox 32×32) et nature de l'astre pour une heure (0–24). */
+function skyAt(h: number) {
   const day = h >= DAY_START && h < DAY_END;
   const span = day ? DAY_END - DAY_START : 24 - (DAY_END - DAY_START);
   const since = day ? h - DAY_START : (h - DAY_END + 24) % 24;
@@ -17,19 +18,32 @@ function skyAt(d: Date) {
   return { day, x: 4 + 24 * t, y: 23 - 16 * Math.sin(Math.PI * t) };
 }
 
-/** Heure courante, rafraîchie chaque minute. */
-function useMinute() {
-  const [now, setNow] = useState(() => new Date());
+const realHour = () => { const d = new Date(); return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; };
+
+/** Heure « du logo » : réelle au départ, puis accélérée. */
+function useSkyHour() {
+  const [hour, setHour] = useState(realHour);
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      const id = setInterval(() => setHour(realHour()), 60_000);
+      return () => clearInterval(id);
+    }
+    const start = performance.now(), h0 = realHour();
+    let raf = 0, last = 0;
+    const tick = (now: number) => {
+      if (now - last >= FRAME_MS) { last = now; setHour((h0 + ((now - start) / CYCLE_MS) * 24) % 24); }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
-  return now;
+  return hour;
 }
 
 export function Logo({ size = 20 }: { size?: number }) {
-  const { day, x, y } = skyAt(useMinute());
-  const mask = `lune${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const { day, x, y } = skyAt(useSkyHour());
+  const mask = `lune${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
       <defs>
@@ -39,7 +53,7 @@ export function Logo({ size = 20 }: { size?: number }) {
           <circle cx="1.6" cy="-1.1" r="2.7" fill="#000" />
         </mask>
       </defs>
-      <g className="logo-astre" style={{ transform: `translate(${x}px, ${y}px)` }}>
+      <g transform={`translate(${x.toFixed(2)} ${y.toFixed(2)})`}>
         {day
           ? <circle r="3.4" fill="#ffc94d" />
           : <circle r="3.2" fill="var(--logo-moon)" mask={`url(#${mask})`} />}

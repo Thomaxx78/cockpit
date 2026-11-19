@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { Trash2 } from 'lucide-react';
+import { NotebookPen, Plus, Trash2 } from 'lucide-react';
 import { features } from '../lib/backend';
 import { newId, useStore } from '../lib/store';
 import { EVENT_KINDS, PALETTE, PRIO_LABELS, PRIORITIES, SUBJECT_STATUSES, TASK_STATUSES, type CalEvent, type Subject, type Task } from '../lib/types';
@@ -99,9 +99,39 @@ function TaskEditor({ initial, isNew, onClose }: { initial: Task; isNew: boolean
         <label>Statut<select value={t.status} onChange={e => set({ status: e.target.value })}>{TASK_STATUSES.map(s => <option key={s}>{s}</option>)}</select></label>
         <label>Priorité<select value={t.priority} onChange={e => set({ priority: e.target.value })}>{PRIORITIES.map(p => <option key={p} value={p}>{PRIO_LABELS[p]}</option>)}</select></label>
         <label className="full">Interlocuteur<input value={t.owner} onChange={e => set({ owner: e.target.value })} placeholder="Ex. Fred" /></label>
+        {!isNew && <LinkedNotes task={t} onClose={onClose} />}
         <button hidden />
       </form>
     </Modal>
+  );
+}
+
+/** Notes rattachées au ticket : ouverture directe, ou création d'une note déjà liée. */
+function LinkedNotes({ task, onClose }: { task: Task; onClose: () => void }) {
+  const { db, saveNote } = useStore();
+  const notes = db.notes.filter(n => n.kind === 'file' && n.task_id === task.id);
+  const open = (id: string) => { onClose(); go('notes/' + id); };
+  const create = () => {
+    const id = newId('n');
+    saveNote({
+      id, parent_id: null, kind: 'file', name: task.name.trim() || 'Sans titre', content: '', task_id: task.id,
+      position: Math.max(0, ...db.notes.map(x => x.position)) + 1, updated_at: null,
+    });
+    open(id);
+  };
+  return (
+    <div className="linked-notes">
+      <div className="linked-notes-head">
+        <span>Notes{notes.length ? ` (${notes.length})` : ''}</span>
+        <button type="button" className="link" onClick={create}><Plus size={14} /> Nouvelle note</button>
+      </div>
+      {notes.map(n => (
+        <button type="button" key={n.id} className="linked-note" onClick={() => open(n.id)}>
+          <NotebookPen size={15} /><span>{n.name}</span>
+          {n.updated_at && <small>{new Date(n.updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</small>}
+        </button>
+      ))}
+    </div>
   );
 }
 

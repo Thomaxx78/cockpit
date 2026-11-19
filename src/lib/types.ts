@@ -39,6 +39,20 @@ export type CalEvent = {
   description?: string;
 };
 
+/** Note Markdown, ou dossier qui en contient (arborescence via parent_id). */
+export type Note = {
+  id: string;
+  parent_id: string | null;
+  kind: 'folder' | 'file';
+  name: string;
+  /** Contenu Markdown (vide pour un dossier). */
+  content: string;
+  /** Ticket auquel la note est rattachée (facultatif). */
+  task_id: string | null;
+  position: number;
+  updated_at: string | null;
+};
+
 /** Entrée du journal d'historique (table public.activity, ou localStorage en mode local). */
 export type Activity = {
   id: number;
@@ -55,7 +69,7 @@ export type Activity = {
   to_status: string | null;
 };
 
-export type DB = { subjects: Subject[]; tasks: Task[]; events: CalEvent[] };
+export type DB = { subjects: Subject[]; tasks: Task[]; events: CalEvent[]; notes: Note[] };
 export type Table = keyof DB;
 export type Row<T extends Table> = DB[T][number];
 

@@ -219,3 +219,35 @@ do $$
 begin
   begin alter publication supabase_realtime add table public.activity; exception when others then null; end;
 end $$;
+
+-- ============================================================
+-- Notes : dossiers et fichiers Markdown, rattachables à un ticket
+-- ============================================================
+create table if not exists public.notes (
+  id          text primary key,
+  parent_id   text references public.notes(id) on delete cascade,
+  kind        text not null default 'file' check (kind in ('folder', 'file')),
+  name        text not null default 'Sans titre',
+  content     text not null default '',
+  task_id     text references public.tasks(id) on delete set null,
+  position    double precision not null default 0,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists notes_parent_idx on public.notes(parent_id);
+create index if not exists notes_task_idx   on public.notes(task_id);
+
+drop trigger if exists notes_touch on public.notes;
+create trigger notes_touch before update on public.notes
+  for each row execute function public.touch_updated_at();
+
+alter table public.notes enable row level security;
+drop policy if exists "owner only" on public.notes;
+create policy "owner only" on public.notes
+  for all to authenticated using (public.is_owner()) with check (public.is_owner());
+
+do $$
+begin
+  begin alter publication supabase_realtime add table public.notes; exception when others then null; end;
+end $$;

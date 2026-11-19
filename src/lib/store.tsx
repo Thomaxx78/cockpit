@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ACTIVITY_LIMIT, backend, clean } from './backend';
-import type { Activity, CalEvent, DB, Subject, Table, Task } from './types';
+import { ACTIVITY_LIMIT, backend, clean, noteDescendants } from './backend';
+import type { Activity, CalEvent, DB, Note, Subject, Table, Task } from './types';
 import { SEED } from './seed';
 
 type Toast = { id: number; text: string; tone?: 'error' };
@@ -22,6 +22,9 @@ type Store = {
   moveTask: (id: string, status: string, position: number) => void;
   saveEvent: (e: CalEvent) => void;
   deleteEvent: (id: string) => void;
+  saveNote: (n: Note) => void;
+  /** Supprime la note ou le dossier, avec tout son contenu. */
+  deleteNote: (id: string) => void;
   importDB: (data: DB) => Promise<void>;
   reload: () => Promise<void>;
   toast: (text: string, tone?: 'error') => void;
@@ -46,7 +49,7 @@ const upsertIn = <T extends { id: string }>(list: T[], row: T) => {
 };
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [db, setDb] = useState<DB>({ subjects: [], tasks: [], events: [] });
+  const [db, setDb] = useState<DB>({ subjects: [], tasks: [], events: [], notes: [] });
   const [activity, setActivity] = useState<Activity[]>([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -113,6 +116,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         next.tasks = next.tasks.map(t => (t.subject_id === id ? { ...t, subject_id: null } : t));
         next.events = next.events.map(e => (e.subject_id === id ? { ...e, subject_id: null } : e));
       }
+      if (table === 'tasks') next.notes = next.notes.map(n => (n.task_id === id ? { ...n, task_id: null } : n));
+      if (table === 'notes') { const gone = noteDescendants(d.notes, id); next.notes = d.notes.filter(n => !gone.has(n.id)); }
       return next;
     });
     persist(() => backend.remove(table, id));
@@ -132,6 +137,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     saveEvent: e => write('events', e),
     deleteEvent: id => remove('events', id),
+    saveNote: n => write('notes', { ...n, updated_at: new Date().toISOString() }),
+    deleteNote: id => remove('notes', id),
     importDB: async data => {
       setSaving(n => n + 1);
       try {
@@ -139,6 +146,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await backend.upsert('subjects', data.subjects);
         await backend.upsert('tasks', data.tasks);
         await backend.upsert('events', data.events);
+        // Dossiers avant les fichiers qu'ils contiennent (clé étrangère parent_id).
+        if (data.notes.length) await backend.upsert('notes', [...data.notes].sort((a, b) => depth(data.notes, a) - depth(data.notes, b)));
         await reload();
         toast(`Import terminé : ${data.subjects.length} sujets, ${data.tasks.length} actions, ${data.events.length} événements`);
       } catch (e) {
@@ -152,9 +161,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }
 
+/** Profondeur d'un élément dans l'arborescence des notes (0 = racine). */
+function depth(notes: Note[], n: Note) {
+  let d = 0;
+  for (let p = n.parent_id; p && d < 50; d++) p = notes.find(x => x.id === p)?.parent_id ?? null;
+  return d;
+}
+
 /** Accepte l'export de l'ancien cockpit (v1) comme celui du nouveau (v2). */
 export function parseImport(raw: unknown): DB {
-  const v = raw as Record<string, unknown[]> & { notes?: Record<string, string> };
+  // « notes » : tableau de notes (v2) ; dans l'ancien format v1, notes des sujets indexées par id.
+  const v = raw as Record<string, unknown[]> & { notes?: Record<string, string> | unknown[] };
   if (!Array.isArray(v?.subjects) || !Array.isArray(v?.tasks) || !Array.isArray(v?.events)) throw new Error('Structure incorrecte');
   const seedColor = (id: string) => SEED.subjects.find(s => s.id === id)?.color ?? '#8b94a7';
   const subjects = (v.subjects as Record<string, unknown>[]).map((s, i) => clean('subjects', {
@@ -162,7 +179,7 @@ export function parseImport(raw: unknown): DB {
     next_step: s.next_step ?? s.next ?? '',
     due_date: s.due_date ?? s.date ?? null,
     color: s.color ?? seedColor(String(s.id)),
-    notes: s.notes ?? v.notes?.[String(s.id)] ?? '',
+    notes: s.notes ?? (Array.isArray(v.notes) ? undefined : v.notes?.[String(s.id)]) ?? '',
     position: s.position ?? i,
   }));
   const tasks = (v.tasks as Record<string, unknown>[]).map((t, i) => clean('tasks', {
@@ -180,5 +197,8 @@ export function parseImport(raw: unknown): DB {
   for (const s of subjects) for (const k of ['category', 'status', 'summary', 'confirmed', 'hypothesis', 'questions', 'people', 'next_step', 'origin', 'notes'] as const) s[k] ??= '';
   for (const t of tasks) { t.owner ??= ''; t.priority ??= 'P2'; t.status ??= 'À faire'; }
   for (const e of events) e.kind ??= 'Événement';
-  return { subjects, tasks, events };
+  const notes = (Array.isArray(v.notes) ? (v.notes as Record<string, unknown>[]) : []).map((n, i) => clean('notes', {
+    ...n, kind: n.kind === 'folder' ? 'folder' : 'file', name: n.name ?? 'Sans titre', position: n.position ?? i,
+  }));
+  return { subjects, tasks, events, notes };
 }

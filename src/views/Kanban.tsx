@@ -5,7 +5,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, Search, X } from 'lucide-react';
+import { NotebookPen, Plus, Search, X } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { DueBadge } from '../components/TaskRow';
 import { Prio, SubjectTag } from '../components/ui';
@@ -17,12 +17,14 @@ type Cols = Record<string, string[]>;
 
 function Card({ t, overlay }: { t: Task; overlay?: boolean }) {
   const owner = cleanOwner(t.owner);
+  const notes = useStore().db.notes.filter(n => n.task_id === t.id).length;
   return (
     <div className={`kcard ${overlay ? 'overlay' : ''} ${t.status === 'Terminé' ? 'is-done' : ''}`} title={owner ? `Interlocuteur : ${owner}` : undefined}>
       <div className="kcard-top"><div className="kcard-name">{t.name}</div><Prio p={t.priority} /></div>
       <div className="meta">
         <SubjectTag id={t.subject_id} />
         <DueBadge date={t.due_date} done={!isActive(t.status)} />
+        {notes > 0 && <span className="kcard-notes" title={`${notes} note${notes > 1 ? 's' : ''} liée${notes > 1 ? 's' : ''}`}><NotebookPen size={12} />{notes > 1 && notes}</span>}
       </div>
     </div>
   );
