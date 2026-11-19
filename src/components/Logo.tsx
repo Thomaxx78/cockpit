@@ -2,11 +2,11 @@ import { useEffect, useId, useState } from 'react';
 
 /* Logo du Cockpit : deux sommets et un astre qui parcourt le ciel.
    Jour (7h–20h) : le soleil se lève à gauche, culmine et se couche à droite derrière les sommets.
-   Nuit : la lune fait le même trajet. Le temps est accéléré (une journée = CYCLE_MS) et part
+   Nuit : la lune fait le même trajet. Le temps est accéléré (une journée = CYCLE_MS, 40 s) et part
    de l'heure réelle ; avec « réduire les animations », l'astre reste à sa place réelle. */
 const DAY_START = 7;
 const DAY_END = 20;
-const CYCLE_MS = 60_000;
+const CYCLE_MS = 40_000;
 const FRAME_MS = 50; // ~20 images/s : fluide sur une si petite icône, sans charger le processeur
 
 /** Position sur l'arc (viewBox 32×32) et nature de l'astre pour une heure (0–24). */
