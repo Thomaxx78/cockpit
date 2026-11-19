@@ -119,7 +119,7 @@ export function App({ email }: { email: string | null }) {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandmark"><Logo size={40} /></div>
+          <div className="brandmark"><Logo size={50} /></div>
           <span className="brandname">Cockpit</span>
         </div>
         <nav>
@@ -143,7 +143,7 @@ export function App({ email }: { email: string | null }) {
       <div className="content">
         <header className="topbar">
           <div className="top-title" aria-hidden="true">
-            <span className="brandmark small"><Logo size={30} /></span>
+            <span className="brandmark small"><Logo size={36} /></span>
             <span>{currentSubject ? 'Sujet' : PAGES.find(([p]) => p === page)?.[1] ?? 'Cockpit'}</span>
           </div>
           <button className="searchbar" onClick={() => setPalette(true)} aria-label="Rechercher (Ctrl K)">
