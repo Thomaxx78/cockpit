@@ -89,6 +89,16 @@ Les jours où une réunion (hors cours) ou une échéance d'action est prévue, 
 - Secrets Supabase : `CRON_SECRET`, `RESEND_API_KEY`, `REMINDER_TO`, `APP_URL` (optionnel), `REMINDER_FROM` (optionnel, par défaut `onboarding@resend.dev`).
 - Pour mettre en pause : `select cron.unschedule('cockpit-reminder-7utc'); select cron.unschedule('cockpit-reminder-8utc');`
 
+## Résumé de la semaine par mail
+
+Chaque **vendredi à 19h (Paris)**, un mail résume la semaine du lundi au vendredi : tickets terminés, avancements, nouveaux tickets, sujets, réunions, notes créées ou modifiées, retards, puis la semaine suivante (réunions et échéances).
+
+- Edge Function `supabase/functions/weekly-summary`, mêmes secrets que le rappel quotidien.
+- Déclenchement par `pg_cron` le vendredi à 17h et 18h UTC (voir `supabase/cron-weekly.sql`) ; une seule fois par semaine (table `weekly_log`).
+- Mise en place : relancer `supabase/schema.sql`, puis `npx supabase functions deploy weekly-summary --project-ref <ref-du-projet>`, puis exécuter `supabase/cron-weekly.sql`.
+- Tester sans attendre vendredi : appeler la fonction avec `{"dry_run": true}` (aperçu) ou `{"force": true}` (envoi), en-tête `x-cron-secret`.
+- Pour mettre en pause : `select cron.unschedule('cockpit-weekly-17utc'); select cron.unschedule('cockpit-weekly-18utc');`
+
 ## Agenda Outlook
 
 L'agenda Outlook publié (lien ICS privé) est importé **toutes les 15 minutes** dans le calendrier du Cockpit, avec le type « Outlook ». La synchronisation va d'Outlook vers le Cockpit uniquement, sur une fenêtre allant de 30 jours passés à 180 jours à venir.

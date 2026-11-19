@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { CalendarPlus, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { useEffect, useState, type DragEvent } from 'react';
+import { CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Plus } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { NextMeeting } from '../components/NextMeeting';
 import { Empty } from '../components/ui';
 import { useStore } from '../lib/store';
+import { isActive, type Task } from '../lib/types';
 import { dayMonth, iso, MOBILE, timeRange, todayIso, useMedia } from '../lib/utils';
 
 type Item = {
@@ -65,6 +66,55 @@ const blockStyle = (b: Placed, gap: string) => ({
   width: `calc(${100 / b.lanes}% - ${gap})`,
 });
 
+/* ---------- Glisser-déposer des tickets (ordinateur) ----------
+   Un ticket sans date se glisse sur un jour pour lui donner une échéance ; une échéance se déplace
+   d'un jour à l'autre, ou se retire en la reposant dans « À planifier ». */
+const DRAG_TYPE = 'application/x-cockpit-task';
+const TRAY_KEY = 'cockpit-cal-tray';
+const dragTask = (id: string) => (e: DragEvent) => {
+  e.dataTransfer.setData(DRAG_TYPE, id);
+  e.dataTransfer.setData('text/plain', id);
+  e.dataTransfer.effectAllowed = 'move';
+};
+const isTaskDrag = (e: DragEvent) => e.dataTransfer.types.includes(DRAG_TYPE);
+
+function Tray({ tasks, onDropBack, dragging }: { tasks: Task[]; onDropBack: (id: string) => void; dragging: boolean }) {
+  const { subject } = useStore();
+  const { editTask } = useEditors();
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(TRAY_KEY) !== '0'; } catch { return true; } });
+  const [over, setOver] = useState(false);
+  const toggle = () => setOpen(o => { try { localStorage.setItem(TRAY_KEY, o ? '0' : '1'); } catch { /* stockage indisponible */ } return !o; });
+  if (!tasks.length && !dragging) return null;
+  return (
+    <section
+      className={`cal-tray ${over ? 'drop-over' : ''} ${dragging ? 'dragging' : ''}`}
+      aria-label="Tickets à planifier"
+      onDragOver={e => { if (isTaskDrag(e)) { e.preventDefault(); setOver(true); } }}
+      onDragLeave={() => setOver(false)}
+      onDrop={e => { setOver(false); const id = e.dataTransfer.getData(DRAG_TYPE); if (id) { e.preventDefault(); onDropBack(id); } }}
+    >
+      <button className="cal-tray-head" onClick={toggle} aria-expanded={open}>
+        <ChevronDown size={15} className={`chev ${open ? '' : 'closed'}`} />
+        <b>À planifier</b><span className="count">{tasks.length}</span>
+        <span className="cal-tray-hint">Glisse un ticket sur un jour pour lui donner une échéance</span>
+      </button>
+      {open && (
+        <div className="cal-tray-list">
+          {tasks.map(t => (
+            <button
+              key={t.id} className="cal-chip" draggable onDragStart={dragTask(t.id)} onClick={() => editTask(t)}
+              style={{ ['--c' as string]: subject(t.subject_id)?.color }} title={`${t.name} — glisser sur un jour`}
+            >
+              <GripVertical size={12} className="grip" /><i className="evt-dot" /><span>{t.name}</span>
+            </button>
+          ))}
+          {!tasks.length && <span className="cal-tray-empty">Dépose ici pour retirer l’échéance</span>}
+        </div>
+      )}
+    </section>
+  );
+}
+
 const longDay = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
 /** Vue d'une journée : heures en marge, réunions à leur place réelle, heure actuelle. */
@@ -119,8 +169,18 @@ function DayView({ day, items, today }: { day: string; items: Item[]; today: str
 }
 
 export function Calendar() {
-  const { db, subject } = useStore();
+  const { db, subject, saveTask, toast } = useStore();
   const { editEvent, editTask } = useEditors();
+  const [overDay, setOverDay] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const setDue = (id: string, due: string | null) => {
+    const t = db.tasks.find(x => x.id === id);
+    if (!t || t.due_date === due) return;
+    saveTask({ ...t, due_date: due });
+    if (!showTasks && due) setShowTasks(true);
+    toast(due ? `Échéance : ${new Date(due + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}` : 'Échéance retirée');
+  };
+  const unplanned = db.tasks.filter(t => !t.due_date && isActive(t.status)).sort((a, b) => a.priority.localeCompare(b.priority) || a.position - b.position);
   const mobile = useMedia(MOBILE);
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [showTasks, setShowTasks] = useState(true);
@@ -187,7 +247,11 @@ export function Calendar() {
 
       <NextMeeting events={db.events} />
 
-      <div className="calendar" role="group" aria-label={`Calendrier ${month.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`}>
+      {!mobile && <Tray tasks={unplanned} onDropBack={id => setDue(id, null)} dragging={dragging} />}
+
+      <div
+        className="calendar" role="group"
+        onDragStart={() => setDragging(true)} onDragEnd={() => { setDragging(false); setOverDay(null); }} aria-label={`Calendrier ${month.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`}>
         {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="dow" aria-hidden="true">{d}</div>)}
         {cells.map(d => {
           const key = iso(d);
@@ -201,8 +265,16 @@ export function Calendar() {
               tabIndex={0}
               aria-pressed={mobile ? sel === key : undefined}
               aria-label={`${longDay(key)}${list.length ? `, ${list.length} élément${list.length > 1 ? 's' : ''}` : ''}${mobile ? '' : ', ajouter un événement'}`}
-              className={`day ${d.getMonth() !== m ? 'other' : ''} ${key === today ? 'today' : ''} ${d.getDay() % 6 === 0 ? 'weekend' : ''} ${sel === key ? 'selected' : ''}`}
+              className={`day ${d.getMonth() !== m ? 'other' : ''} ${key === today ? 'today' : ''} ${d.getDay() % 6 === 0 ? 'weekend' : ''} ${sel === key ? 'selected' : ''} ${overDay === key ? 'drop-over' : ''}`}
               onClick={() => pickDay(key)}
+              onDragOver={e => { if (!mobile && isTaskDrag(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (overDay !== key) setOverDay(key); } }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOverDay(o => (o === key ? null : o)); }}
+              onDrop={e => {
+                const id = e.dataTransfer.getData(DRAG_TYPE);
+                setOverDay(null);
+                setDragging(false);
+                if (id) { e.preventDefault(); setDue(id, key); }
+              }}
               onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickDay(key); } }}
             >
               {mobile ? <>
@@ -224,7 +296,9 @@ export function Calendar() {
                     key={it.key}
                     className={`evt ${it.kind} ${it.done ? 'is-done' : ''}`}
                     style={{ ['--c' as string]: it.color }}
-                    title={it.name}
+                    title={it.kind === 'task' ? `${it.name} — glisser pour changer l’échéance` : it.name}
+                    draggable={it.kind === 'task'}
+                    onDragStart={it.kind === 'task' ? dragTask(it.key) : undefined}
                     onClick={e => { e.stopPropagation(); it.open(); }}
                   >
                     {it.kind === 'task' ? <Check size={11} strokeWidth={3} /> : <i className="evt-dot" />}

@@ -284,9 +284,9 @@ test('quota par minute : nouvel essai automatique après une courte attente', as
 test('schémas d’outils compacts (quota gratuit)', async () => {
   const { toolSchemas } = await import('../functions/ai-chat/tools.ts');
   const json = JSON.stringify(toolSchemas());
-  assert.ok(json.length < 5200, `schémas trop longs : ${json.length} caractères`);
+  assert.ok(json.length < 6000, `schémas trop longs : ${json.length} caractères`);
   assert.doesNotMatch(json, /"description":"Mots|"limit"|minItems/);
-  assert.equal(toolSchemas().length, 15);
+  assert.equal(toolSchemas().length, 19);
 });
 
 test('backlog : exclu par défaut des recherches et des retards, accessible sur demande', async () => {
@@ -306,4 +306,41 @@ test('backlog : exclu par défaut des recherches et des retards, accessible sur 
   const mv = await runAgent(scriptedLLM([{ calls: [call('move_task', { task_id: 't1', status: 'Backlog' })] }]), repo, { message: 'mets le portail au backlog', now: NOW });
   assert.equal(mv.changed, true);
   assert.equal((repo.data.tasks.find(x => x.id === 't1') as Task).status, 'Backlog');
+});
+
+test('notes : création dans un dossier par son nom (créé au besoin), liée à un ticket', async () => {
+  const repo = memoryRepo(seed(), () => NOW);
+  const md = '## Objectifs\n\n- Cadrer le POC\n\n## Actions\n\n- [ ] Relancer Arthur\n';
+  const llm = scriptedLLM([{ calls: [call('create_note', { name: 'Plan Moon', content: md, folder_name: 'Projets', task_id: 't2' })] }]);
+  const out = await runAgent(llm, repo, { message: 'Rédige une note plan Moon dans Projets', now: NOW });
+  assert.equal(out.changed, true);
+  const notes = repo.data.notes as { id: string; kind: string; name: string; parent_id: string | null; content: string; task_id: string | null }[];
+  const folder = notes.find(n => n.kind === 'folder');
+  const note = notes.find(n => n.kind === 'file');
+  assert.equal(folder?.name, 'Projets');
+  assert.equal(note?.parent_id, folder?.id, 'rangée dans le dossier créé');
+  assert.equal(note?.content, md.trim(), 'Markdown conservé (retours à la ligne compris)');
+  assert.equal(note?.task_id, 't2');
+  assert.ok(out.refs.some(r => r.type === 'note' && r.id === note?.id), 'note référencée pour « ouvre-la »');
+});
+
+test('notes : recherche dans le contenu puis lecture, ajout à la fin', async () => {
+  const s = { ...seed(), notes: [
+    { id: 'nf', parent_id: null, kind: 'folder', name: 'Réunions', content: '', task_id: null, position: 1 },
+    { id: 'n1', parent_id: 'nf', kind: 'file', name: 'CR comité', content: '## Décisions\n\n- Budget validé pour Edison\n', task_id: null, position: 2, updated_at: '2026-10-20T10:00:00Z' },
+    { id: 'n2', parent_id: null, kind: 'file', name: 'Idées', content: 'Rien à voir', task_id: null, position: 3, updated_at: '2026-10-21T10:00:00Z' },
+  ] };
+  const repo = memoryRepo(s as never, () => NOW);
+  const llm = scriptedLLM([
+    { calls: [call('list_notes', { query: 'budget' })] },
+    { calls: [call('get_note', { note_id: 'n1' })] },
+    { calls: [call('update_note', { note_id: 'n1', append: '## Suite\n\n- Point le 9/11' })] },
+  ]);
+  await runAgent(llm, repo, { message: 'Dans la note sur le budget, ajoute la suite', now: NOW });
+  const [list, got] = toolOutputs(llm.seen[2]);
+  assert.deepEqual(list.notes.map((n: { id: string }) => n.id), ['n1'], 'trouvée par son contenu');
+  assert.equal(list.notes[0].folder, 'Réunions');
+  assert.match(got.content, /Budget validé/);
+  const n1 = (repo.data.notes as { id: string; content: string }[]).find(n => n.id === 'n1')!;
+  assert.match(n1.content, /Budget validé pour Edison\n\n## Suite\n\n- Point le 9\/11\n$/);
 });

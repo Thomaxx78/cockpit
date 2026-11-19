@@ -21,8 +21,13 @@ export type CalEvent = {
   id: string; date: string; name: string; subject_id: string | null; kind: string;
   start_time: string | null; end_time: string | null;
 };
-export type Table = 'tasks' | 'subjects' | 'events';
-export type AnyRow = Task | Subject | CalEvent;
+/** Note Markdown ou dossier (arborescence via parent_id). */
+export type Note = {
+  id: string; parent_id: string | null; kind: 'folder' | 'file'; name: string; content: string;
+  task_id: string | null; event_id?: string | null; pinned?: boolean; position: number; updated_at?: string | null;
+};
+export type Table = 'tasks' | 'subjects' | 'events' | 'notes';
+export type AnyRow = Task | Subject | CalEvent | Note;
 
 /** Erreur de validation : renvoyée au modèle pour qu'il corrige ou pose une question. */
 export class ValidationError extends Error {}

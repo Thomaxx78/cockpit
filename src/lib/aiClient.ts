@@ -2,7 +2,7 @@ import { FunctionsFetchError, FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './backend';
 
 /** Contrat de l'Edge Function ai-chat (voir supabase/functions/ai-chat/agent.ts). */
-export type AIRef = { type: 'task' | 'subject' | 'event'; id: string };
+export type AIRef = { type: 'task' | 'subject' | 'event' | 'note'; id: string };
 export type AIOpResult = { ok: boolean; kind: 'insert' | 'update' | 'delete'; table: string; id: string; text: string };
 export type AIProposal = { id: string; items: string[]; more: number; expires_at: string };
 export type AIResponse = {

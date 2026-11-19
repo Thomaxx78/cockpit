@@ -217,6 +217,68 @@
 .nt-rich td > p, .nt-rich th > p { margin: 0; }
 .nt-rich .selectedCell::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--brand) 12%, transparent); pointer-events: none; }
 
+/* ----- Épinglées / récentes ----- */
+.nt-quick { display: flex; flex-direction: column; gap: 1px; margin: 0 4px; }
+.nt-quick-title { display: flex; align-items: center; gap: 5px; padding: 2px 8px 4px; font-size: var(--fs-2xs); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.nt-tree > .nt-quick-title { padding-top: 0; }
+.nt-quick-row { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 7px; font-size: var(--fs-sm); color: var(--ink-2); text-align: left; min-width: 0; }
+.nt-quick-row svg { color: var(--muted); flex-shrink: 0; }
+.nt-quick-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-quick-row:hover { background: var(--sunken); }
+.nt-quick-row.active { background: var(--brand-soft); color: var(--brand-strong); font-weight: 600; }
+.nt-pinned { color: var(--muted); flex-shrink: 0; margin-left: auto; }
+.nt-pinned + .nt-linked { margin-left: 4px; }
+.icon-btn.on { color: var(--brand); background: var(--brand-soft); border-color: transparent; }
+.nt-event { border: 0; cursor: pointer; font: inherit; }
+.nt-event b { font-weight: 600; padding-right: 4px; }
+.nt-export .menu { right: 0; left: auto; min-width: 250px; }
+.nt-make-tickets { color: var(--brand-strong); }
+
+/* ----- Cases à cocher ⇄ tickets ----- */
+.prose li.md-done > p, .prose li.md-done { color: var(--muted); }
+.prose li.md-done > input + *, .prose li.md-done > p > input ~ * { text-decoration: none; }
+.prose li > input[type='checkbox'], .prose li > p > input[type='checkbox'] { cursor: pointer; }
+.md-ticket {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 0 8px; border-radius: 20px; vertical-align: 1px;
+  font-size: 11.5px; font-weight: 600; line-height: 20px; text-decoration: none !important;
+  background: var(--sunken); color: var(--ink-2) !important; border: 1px solid var(--line);
+}
+.md-ticket::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--muted-2); }
+.md-ticket:hover { border-color: var(--brand); }
+.md-ticket[data-status='En cours']::before { background: var(--brand); }
+.md-ticket[data-status='En attente']::before { background: var(--amber); }
+.md-ticket[data-status='Terminé']::before { background: var(--green); }
+.md-ticket[data-status='gone'] { opacity: .6; text-decoration: line-through !important; }
+.md-to-ticket {
+  margin-left: 8px; padding: 0 8px; border-radius: 20px; font-size: 11.5px; font-weight: 600; line-height: 20px; vertical-align: 1px;
+  color: var(--brand-strong); background: var(--brand-soft); opacity: 0; transition: opacity .12s;
+}
+.prose li:hover > .md-to-ticket, .prose li:hover > p > .md-to-ticket, .md-to-ticket:focus-visible { opacity: 1; }
+@media (hover: none) { .md-to-ticket { opacity: 1; } }
+
+/* ----- Impression / PDF : la note seule, en clair ----- */
+@media print {
+  :root, :root[data-theme] {
+    --ink: #141a29 !important; --ink-2: #2f3646 !important; --muted: #5c6474 !important; --muted-2: #8d94a3 !important;
+    --line: #e3e6eb !important; --surface: #fff !important; --surface-2: #f8f9fb !important; --sunken: #f1f3f6 !important;
+    --brand: #5048e5 !important; --brand-strong: #3f38c9 !important; --brand-soft: #f0f0fe !important; --bg: #fff !important;
+  }
+  body.print-note { background: #fff !important; }
+  body.print-note .sidebar, body.print-note .topbar, body.print-note .tabbar, body.print-note .nt-side, body.print-note .nt-doc-bar,
+  body.print-note .nt-meta, body.print-note .nt-toc, body.print-note .ai-fab, body.print-note .ai-panel, body.print-note .toasts,
+  body.print-note .md-copy, body.print-note .md-to-ticket, body.print-note .notice { display: none !important; }
+  body.print-note .app { display: block !important; }
+  body.print-note .main { padding: 0 !important; max-width: none !important; animation: none !important; }
+  body.print-note .notes { display: block !important; }
+  body.print-note .nt-doc { border: 0 !important; box-shadow: none !important; }
+  body.print-note .nt-paper { padding: 0 !important; display: block !important; }
+  body.print-note .nt-paper-main { max-width: none !important; }
+  body.print-note .nt-title { font-size: 26pt; margin-bottom: 14pt; }
+  body.print-note .prose { font-size: 11pt; }
+  body.print-note .prose pre, body.print-note .prose table, body.print-note .md-alert { break-inside: avoid; }
+  body.print-note .prose h2, body.print-note .prose h3 { break-after: avoid; }
+}
+
 /* ---------- Tablette & téléphone ---------- */
 @media (max-width: 1100px) {
   .notes { grid-template-columns: 236px minmax(0, 1fr); gap: 16px; }

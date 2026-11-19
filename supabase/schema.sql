@@ -158,6 +158,14 @@ create table if not exists public.reminder_log (
 );
 alter table public.reminder_log enable row level security;
 
+-- Résumé hebdomadaire (Edge Function weekly-summary) : un envoi par semaine au maximum.
+create table if not exists public.weekly_log (
+  week     date primary key,  -- lundi de la semaine résumée
+  sent_at  timestamptz not null default now(),
+  detail   jsonb
+);
+alter table public.weekly_log enable row level security;
+
 -- ============================================================
 -- Historique (« ce qui a été fait ») : journal alimenté par triggers
 -- ============================================================
@@ -235,7 +243,12 @@ create table if not exists public.notes (
   updated_at  timestamptz not null default now()
 );
 
+-- Migration : lien vers une réunion (compte rendu) et épingle
+alter table public.notes add column if not exists event_id text references public.events(id) on delete set null;
+alter table public.notes add column if not exists pinned   boolean not null default false;
+
 create index if not exists notes_parent_idx on public.notes(parent_id);
+create index if not exists notes_event_idx  on public.notes(event_id);
 create index if not exists notes_task_idx   on public.notes(task_id);
 
 drop trigger if exists notes_touch on public.notes;

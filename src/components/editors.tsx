@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
-import { NotebookPen, Plus, Trash2 } from 'lucide-react';
+import { NotebookPen, NotepadText, Plus, Trash2 } from 'lucide-react';
 import { features } from '../lib/backend';
 import { newId, useStore } from '../lib/store';
 import { EVENT_KINDS, PALETTE, PRIO_LABELS, PRIORITIES, SUBJECT_STATUSES, TASK_STATUSES, type CalEvent, type Subject, type Task } from '../lib/types';
 import { go } from '../lib/utils';
+import { newNote, useMeetingNotes } from '../lib/notes';
 import { Modal } from './ui';
 
 type Editors = {
@@ -112,12 +113,9 @@ function LinkedNotes({ task, onClose }: { task: Task; onClose: () => void }) {
   const notes = db.notes.filter(n => n.kind === 'file' && n.task_id === task.id);
   const open = (id: string) => { onClose(); go('notes/' + id); };
   const create = () => {
-    const id = newId('n');
-    saveNote({
-      id, parent_id: null, kind: 'file', name: task.name.trim() || 'Sans titre', content: '', task_id: task.id,
-      position: Math.max(0, ...db.notes.map(x => x.position)) + 1, updated_at: null,
-    });
-    open(id);
+    const n = newNote(db.notes, { name: task.name.trim() || 'Sans titre', task_id: task.id });
+    saveNote(n);
+    open(n.id);
   };
   return (
     <div className="linked-notes">
@@ -149,6 +147,8 @@ function Linkified({ text }: { text: string }) {
 
 function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: boolean; onClose: () => void }) {
   const { saveEvent, deleteEvent, toast, subject } = useStore();
+  const meeting = useMeetingNotes();
+  const meetingNotes = isNew ? [] : meeting.notesOf(initial.id);
   const [e, setE] = useState(initial);
   const fromOutlook = initial.id.startsWith('ol-');
   const set = (p: Partial<CalEvent>) => setE(x => ({ ...x, ...p }));
@@ -167,6 +167,13 @@ function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: bo
       footer={<>
         {!isNew && !fromOutlook && <button className="btn danger ghost" onClick={() => { if (confirm('Supprimer cet événement ?')) { deleteEvent(e.id); toast('Événement supprimé'); onClose(); } }}><Trash2 size={15} /> Supprimer</button>}
         {!isNew && e.subject_id && <button className="btn ghost" onClick={() => { onClose(); go('sujets/' + e.subject_id); }}>Ouvrir le sujet</button>}
+        {!isNew && (
+          <button className="btn ghost" onClick={() => {
+            if (JSON.stringify(e) !== JSON.stringify(initial) && e.name.trim() && e.date) saveEvent({ ...e, name: e.name.trim() });
+            onClose();
+            meeting.open(e);
+          }}><NotepadText size={15} /> {meetingNotes.length ? 'Notes de réunion' : 'Prendre des notes'}</button>
+        )}
         <span className="grow" />
         <button className="btn" onClick={onClose}>Annuler</button>
         <button className="btn primary" onClick={submit}>Enregistrer</button>

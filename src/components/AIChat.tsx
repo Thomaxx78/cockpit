@@ -194,6 +194,7 @@ export function AIChat() {
     if (o.table === 'tasks') { const t = db.tasks.find(x => x.id === o.id); if (t) editTask(t); }
     else if (o.table === 'events') { const e = db.events.find(x => x.id === o.id); if (e) editEvent(e); }
     else if (o.table === 'subjects') { go('sujets/' + o.id); setOpen(false); }
+    else if (o.table === 'notes') { go('notes/' + o.id); setOpen(false); }
   };
 
   const clear = () => { setState({ msgs: [], refs: [] }); setInput(''); };

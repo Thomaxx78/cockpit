@@ -2,7 +2,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.118.0';
 import type { AnyRow, Table } from './domain.ts';
 import type { Op, Proposal, Repo } from './repo.ts';
 
-const ORDER: Record<Table, string> = { tasks: 'position', subjects: 'position', events: 'date' };
+const ORDER: Record<Table, string> = { tasks: 'position', subjects: 'position', events: 'date', notes: 'position' };
 
 /**
  * Accès Supabase avec le client de l'utilisateur (jeton JWT transmis) :

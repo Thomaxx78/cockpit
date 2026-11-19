@@ -1,10 +1,10 @@
 import {
   color, date, fmtDate, id, isActive, oneOf, PALETTE, PRIORITIES, str, SUBJECT_STATUSES, TASK_STATUSES, time, ValidationError,
-  type AnyRow, type CalEvent, type Subject, type Table, type Task,
+  type AnyRow, type CalEvent, type Note, type Subject, type Table, type Task,
 } from './domain.ts';
 import type { Op, Repo } from './repo.ts';
 
-export type RefType = 'task' | 'subject' | 'event';
+export type RefType = 'task' | 'subject' | 'event' | 'note';
 export type Ref = { type: RefType; id: string };
 
 export type ToolCtx = {
@@ -26,8 +26,8 @@ export type Tool = {
   prepare?: (args: Args, ctx: ToolCtx) => Promise<Op[]>;
 };
 
-const TABLE_OF: Record<RefType, Table> = { task: 'tasks', subject: 'subjects', event: 'events' };
-const REF_OF: Record<Table, RefType> = { tasks: 'task', subjects: 'subject', events: 'event' };
+const TABLE_OF: Record<RefType, Table> = { task: 'tasks', subject: 'subjects', event: 'events', note: 'notes' };
+const REF_OF: Record<Table, RefType> = { tasks: 'task', subjects: 'subject', events: 'event', notes: 'note' };
 const MAX_REFS = 15;
 
 export async function rows<T extends AnyRow>(ctx: ToolCtx, table: Table): Promise<T[]> {
@@ -566,10 +566,172 @@ const deleteEvent: Tool = {
   },
 };
 
+// ---------------------------------------------------------------- Notes (Markdown)
+
+const NOTE_MAX = 20000;
+const notePath = (notes: Note[], n: Note) => {
+  const parts: string[] = [];
+  for (let p = n.parent_id, i = 0; p && i < 20; i++) {
+    const f = notes.find(x => x.id === p);
+    if (!f) break;
+    parts.unshift(f.name);
+    p = f.parent_id;
+  }
+  return parts.join(' / ') || undefined;
+};
+const snippet = (md: string, q?: string) => {
+  const flat = md.replace(/[#>*_`|[\]()-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!q) return cut(flat, 140);
+  const i = norm(flat).indexOf(norm(q).split(/\s+/)[0] ?? '');
+  return cut(i > 40 ? '…' + flat.slice(i - 40) : flat, 160);
+};
+
+async function mustNote(ctx: ToolCtx, raw: unknown, kind?: Note['kind']) {
+  const n = await mustGet<Note>(ctx, 'notes', raw, 'note_id');
+  if (kind && n.kind !== kind) throw new ValidationError(kind === 'file' ? 'Cet identifiant est un dossier, pas une note.' : 'Cet identifiant est une note, pas un dossier.');
+  return n;
+}
+
+const listNotes: Tool = {
+  name: 'list_notes',
+  mode: 'read',
+  description: 'Cherche dans les notes et liste les dossiers.',
+  parameters: {
+    type: 'object',
+    properties: {
+      query: { type: 'string' },
+      folder_id: { type: 'string' },
+      limit: { type: 'integer', minimum: 1, maximum: 25 },
+    },
+  },
+  async run(a, ctx) {
+    const notes = await rows<Note>(ctx, 'notes');
+    const q = str(a.query, 'query', 120);
+    const folder = a.folder_id ? id(a.folder_id, 'folder_id') : undefined;
+    const files = notes
+      .filter(n => n.kind === 'file' && (!folder || n.parent_id === folder) && matches(`${n.name} ${n.content}`, q))
+      .sort((x, y) => (y.updated_at ?? '').localeCompare(x.updated_at ?? ''));
+    const shown = files.slice(0, limitOf(a.limit, 12, 25));
+    addRefs(ctx, 'notes', shown.map(n => n.id).reverse());
+    return {
+      total: files.length,
+      notes: shown.map(n => ({ id: n.id, name: n.name, folder: notePath(notes, n), updated: n.updated_at?.slice(0, 10), excerpt: snippet(n.content, q) })),
+      folders: notes.filter(n => n.kind === 'folder').slice(0, 40).map(f => ({ id: f.id, path: [notePath(notes, f), f.name].filter(Boolean).join(' / ') })),
+    };
+  },
+};
+
+const getNote: Tool = {
+  name: 'get_note',
+  mode: 'read',
+  description: 'Contenu d’une note.',
+  parameters: { type: 'object', properties: { note_id: { type: 'string' } }, required: ['note_id'] },
+  async run(a, ctx) {
+    const n = await mustNote(ctx, a.note_id, 'file');
+    const notes = await rows<Note>(ctx, 'notes');
+    addRefs(ctx, 'notes', [n.id]);
+    const task = n.task_id ? (await rows<Task>(ctx, 'tasks')).find(t => t.id === n.task_id) : undefined;
+    return { id: n.id, name: n.name, folder: notePath(notes, n), linked_task: task?.name, updated: n.updated_at?.slice(0, 10), content: n.content };
+  },
+};
+
+/** Dossier visé : par id, ou par nom (créé à la racine s'il n'existe pas). */
+async function targetFolder(a: Args, ctx: ToolCtx, ops: Op[]): Promise<string | null> {
+  if (a.folder_id) return (await mustNote(ctx, a.folder_id, 'folder')).id;
+  const name = str(a.folder_name, 'folder_name', 120);
+  if (!name) return null;
+  const notes = await rows<Note>(ctx, 'notes');
+  const found = notes.find(n => n.kind === 'folder' && norm(n.name) === norm(name));
+  if (found) return found.id;
+  const folder: Note = { id: newId('n'), parent_id: null, kind: 'folder', name, content: '', task_id: null, position: Math.max(0, ...notes.map(n => n.position)) + 1 };
+  ops.push({ kind: 'insert', table: 'notes', row: folder, label: `Nouveau dossier « ${name} »`, auxiliary: true });
+  return folder.id;
+}
+
+const createNote: Tool = {
+  name: 'create_note',
+  mode: 'write',
+  description: 'Crée une note Markdown ; titre dans name.',
+  parameters: {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+      content: { type: 'string', description: 'Markdown' },
+      folder_id: { type: 'string' },
+      folder_name: { type: 'string', description: 'Dossier par son nom (créé s’il n’existe pas)' },
+      task_id: { type: ['string', 'null'], description: 'Ticket lié' },
+    },
+    required: ['name', 'content'],
+  },
+  async prepare(a, ctx) {
+    const ops: Op[] = [];
+    const notes = await rows<Note>(ctx, 'notes');
+    const parent = await targetFolder(a, ctx, ops);
+    const task = a.task_id ? await mustGet<Task>(ctx, 'tasks', a.task_id, 'task_id') : undefined;
+    const row: Note = {
+      id: newId('n'), parent_id: parent, kind: 'file',
+      name: str(a.name, 'name', 160, { required: true })!,
+      content: str(a.content, 'content', NOTE_MAX) ?? '',
+      task_id: task?.id ?? null,
+      position: Math.max(0, ...notes.map(n => n.position)) + 2,
+      updated_at: new Date().toISOString(),
+    };
+    const where = parent ? (notes.find(n => n.id === parent)?.name ?? String(a.folder_name ?? '')) : '';
+    ops.push({ kind: 'insert', table: 'notes', row, label: `Nouvelle note « ${row.name} »${where ? ` dans « ${where} »` : ''}${task ? ` liée à « ${task.name} »` : ''}` });
+    return ops;
+  },
+};
+
+const updateNote: Tool = {
+  name: 'update_note',
+  mode: 'write',
+  description: 'Modifie une note : append ajoute à la fin, content remplace tout.',
+  parameters: {
+    type: 'object',
+    properties: {
+      note_id: { type: 'string' },
+      name: { type: 'string' },
+      append: { type: 'string', description: 'Markdown ajouté à la fin' },
+      content: { type: 'string', description: 'Markdown complet (remplace)' },
+      folder_id: { type: ['string', 'null'] },
+      task_id: { type: ['string', 'null'] },
+    },
+    required: ['note_id'],
+  },
+  async prepare(a, ctx) {
+    const n = await mustNote(ctx, a.note_id, 'file');
+    const patch: Partial<Note> = {};
+    const changes: string[] = [];
+    const name = str(a.name, 'name', 160);
+    if (name && name !== n.name) { patch.name = name; changes.push(`renommée « ${name} »`); }
+    const content = str(a.content, 'content', NOTE_MAX);
+    const append = str(a.append, 'append', NOTE_MAX);
+    if (content !== undefined && content !== n.content) { patch.content = content; changes.push('contenu réécrit'); }
+    else if (append) {
+      const next = (n.content.replace(/\s+$/, '') + '\n\n' + append).trim() + '\n';
+      if (next.length > NOTE_MAX) throw new ValidationError(`La note dépasserait ${NOTE_MAX} caractères`);
+      patch.content = next;
+      changes.push('contenu ajouté à la fin');
+    }
+    if (a.folder_id !== undefined) {
+      const f = a.folder_id === null || a.folder_id === '' ? null : (await mustNote(ctx, a.folder_id, 'folder')).id;
+      if (f !== n.parent_id) { patch.parent_id = f; changes.push('déplacée'); }
+    }
+    if (a.task_id !== undefined) {
+      const t = a.task_id === null || a.task_id === '' ? null : (await mustGet<Task>(ctx, 'tasks', a.task_id, 'task_id')).id;
+      if (t !== n.task_id) { patch.task_id = t; changes.push(t ? 'liée à un ticket' : 'détachée du ticket'); }
+    }
+    if (!changes.length) throw new ValidationError(`Aucune modification pour « ${n.name} ».`);
+    patch.updated_at = new Date().toISOString();
+    return [{ kind: 'update', table: 'notes', id: n.id, patch, label: `Note « ${n.name} » : ${changes.join(', ')}` }];
+  },
+};
+
 export const TOOLS: Tool[] = [
   listTasks, getTask, createTask, updateTask, moveTask, deleteTask, bulkUpdateTasks, reorderByPriority,
   listSubjects, createSubject, updateSubject,
   listEvents, createEvent, updateEvent, deleteEvent,
+  listNotes, getNote, createNote, updateNote,
 ];
 export const TOOL_BY_NAME = new Map(TOOLS.map(t => [t.name, t]));
 
@@ -642,6 +804,7 @@ export async function describeRefs(ctx: ToolCtx, refs: Ref[]): Promise<string[]>
     if (!row) continue;
     if (r.type === 'task') { const t = row as Task; lines.push(`action ${t.id} « ${cut(t.name, 80)} » (${t.status}, ${t.priority})`); }
     else if (r.type === 'subject') lines.push(`sujet ${row.id} « ${cut((row as Subject).name, 80)} »`);
+    else if (r.type === 'note') lines.push(`note ${row.id} « ${cut((row as Note).name, 80)} »`);
     else { const e = row as CalEvent; lines.push(`événement ${e.id} « ${cut(e.name, 80)} » (${e.date})`); }
   }
   return lines;

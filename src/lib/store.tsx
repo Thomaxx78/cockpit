@@ -23,6 +23,10 @@ type Store = {
   saveEvent: (e: CalEvent) => void;
   deleteEvent: (id: string) => void;
   saveNote: (n: Note) => void;
+  /** Plusieurs notes en une seule écriture (ex. dossier + note qu'il contient). */
+  saveNotes: (ns: Note[]) => void;
+  /** Plusieurs tickets en une seule écriture. */
+  saveTasks: (ts: Task[]) => void;
   /** Supprime la note ou le dossier, avec tout son contenu. */
   deleteNote: (id: string) => void;
   importDB: (data: DB) => Promise<void>;
@@ -103,11 +107,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .finally(() => setSaving(n => n - 1));
   }, [toast, reload]);
 
-  const write = useCallback(<T extends Table>(table: T, row: DB[T][number]) => {
-    const r = clean(table, row as Record<string, unknown>);
-    setDb(d => ({ ...d, [table]: upsertIn(d[table] as { id: string }[], r) }));
-    persist(() => backend.upsert(table, [r]));
+  const writeMany = useCallback(<T extends Table>(table: T, rows: DB[T][number][]) => {
+    if (!rows.length) return;
+    const rs = rows.map(row => clean(table, row as Record<string, unknown>));
+    setDb(d => ({ ...d, [table]: rs.reduce((list, r) => upsertIn(list, r), d[table] as { id: string }[]) }));
+    persist(() => backend.upsert(table, rs));
   }, [persist]);
+  const write = useCallback(<T extends Table>(table: T, row: DB[T][number]) => writeMany(table, [row]), [writeMany]);
 
   const remove = useCallback((table: Table, id: string) => {
     setDb(d => {
@@ -117,6 +123,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         next.events = next.events.map(e => (e.subject_id === id ? { ...e, subject_id: null } : e));
       }
       if (table === 'tasks') next.notes = next.notes.map(n => (n.task_id === id ? { ...n, task_id: null } : n));
+      if (table === 'events') next.notes = next.notes.map(n => (n.event_id === id ? { ...n, event_id: null } : n));
       if (table === 'notes') { const gone = noteDescendants(d.notes, id); next.notes = d.notes.filter(n => !gone.has(n.id)); }
       return next;
     });
@@ -138,6 +145,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saveEvent: e => write('events', e),
     deleteEvent: id => remove('events', id),
     saveNote: n => write('notes', { ...n, updated_at: new Date().toISOString() }),
+    saveNotes: ns => writeMany('notes', ns.map(n => ({ ...n, updated_at: new Date().toISOString() }))),
+    saveTasks: ts => writeMany('tasks', ts),
     deleteNote: id => remove('notes', id),
     importDB: async data => {
       setSaving(n => n + 1);
@@ -156,7 +165,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSaving(n => n - 1);
       }
     },
-  }), [db, activity, ready, loadError, saving, saveError, toasts, toast, reload, write, remove]);
+  }), [db, activity, ready, loadError, saving, saveError, toasts, toast, reload, write, writeMany, remove]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

@@ -48,6 +48,9 @@ export function renderMarkdown(md: string): { html: string; headings: Heading[] 
       },
       link({ href, title, tokens }) {
         const text = this.parser.parseInline(tokens);
+        // Lien vers un ticket créé depuis une case à cocher : pastille de statut (remplie à l'affichage).
+        const ticket = href.match(/^#ticket-([\w-]+)$/);
+        if (ticket) return `<a href="${href}" class="md-ticket" data-ticket="${ticket[1]}">ticket</a>`;
         const external = /^https?:/i.test(href);
         return `<a href="${href}"${title ? ` title="${title}"` : ''}${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${text}</a>`;
       },

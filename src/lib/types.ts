@@ -49,6 +49,10 @@ export type Note = {
   content: string;
   /** Ticket auquel la note est rattachée (facultatif). */
   task_id: string | null;
+  /** Réunion dont la note est le compte rendu (facultatif). */
+  event_id: string | null;
+  /** Affichée en tête de l'arborescence. */
+  pinned: boolean;
   position: number;
   updated_at: string | null;
 };

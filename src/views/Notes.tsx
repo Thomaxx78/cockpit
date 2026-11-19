@@ -1,15 +1,16 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import {
-  ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, FileCode2, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, Link2, NotebookPen,
-  Pencil, Trash2, Type,
+  ArrowLeft, CalendarDays, Check, ChevronRight, ClipboardPaste, Clock, Copy, Download, FileCode2, FilePlus2, FileText, Folder, FolderOpen,
+  FolderPlus, Link2, ListPlus, NotebookPen, Pencil, Pin, PinOff, Trash2, Type,
 } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { AutoTextarea } from '../components/ui';
 import { features, noteDescendants } from '../lib/backend';
 import { clipboardToMarkdown, firstHeading, readClipboard, renderMarkdown, withoutTitle } from '../lib/markdown';
+import { checkboxes, linkTickets, newNote, openInEdit, plainText, UNTITLED, type Checkbox } from '../lib/notes';
 import { newId, useStore } from '../lib/store';
-import { isActive, type Note } from '../lib/types';
-import { go, MOBILE, useMedia } from '../lib/utils';
+import { isActive, type Note, type Task } from '../lib/types';
+import { download, go, MOBILE, useMedia } from '../lib/utils';
 import '../styles/notes.css';
 
 // Éditeur visuel (Tiptap) chargé seulement quand on modifie une note.
@@ -18,7 +19,6 @@ const MODE_KEY = 'cockpit-notes-mode';
 type Mode = 'rich' | 'md';
 const readMode = (): Mode => { try { return localStorage.getItem(MODE_KEY) === 'md' ? 'md' : 'rich'; } catch { return 'rich'; } };
 
-const UNTITLED = 'Sans titre';
 const OPEN_KEY = 'cockpit-notes-open';
 const collator = new Intl.Collator('fr', { numeric: true, sensitivity: 'base' });
 const sortNotes = (a: Note, b: Note) => (a.kind === b.kind ? collator.compare(a.name, b.name) : a.kind === 'folder' ? -1 : 1);
@@ -72,13 +72,8 @@ export function Notes({ id }: { id?: string }) {
     if (path.some(p => !open.includes(p))) setOpenPersist(o => [...new Set([...o, ...path])]);
   }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const nextPos = () => Math.max(0, ...notes.map(n => n.position)) + 1;
-
   const create = (kind: Note['kind'], parent: string | null, content = '') => {
-    const n: Note = {
-      id: newId('n'), parent_id: parent, kind, content, task_id: null, position: nextPos(), updated_at: null,
-      name: kind === 'folder' ? 'Nouveau dossier' : firstHeading(content) ?? UNTITLED,
-    };
+    const n = newNote(notes, { parent_id: parent, kind, content, name: kind === 'folder' ? 'Nouveau dossier' : firstHeading(content) ?? UNTITLED });
     saveNote(n);
     if (parent) setOpenPersist(o => (o.includes(parent) ? o : [...o, parent]));
     if (kind === 'folder') setRenaming(n.id);
@@ -141,6 +136,13 @@ export function Notes({ id }: { id?: string }) {
     );
   }
 
+  const files = notes.filter(n => n.kind === 'file');
+  const pinned = files.filter(n => n.pinned).sort(sortNotes);
+  // Récentes : utile seulement quand il y a de quoi chercher.
+  const recent = files.length > 4
+    ? files.filter(n => !n.pinned && n.updated_at).sort((a, b) => b.updated_at!.localeCompare(a.updated_at!)).slice(0, 4)
+    : [];
+
   const tree = (
     <aside className="nt-side" aria-label="Dossiers et notes">
       <div className="nt-side-head">
@@ -151,7 +153,10 @@ export function Notes({ id }: { id?: string }) {
         </div>
       </div>
       <button className="btn primary wide nt-paste" onClick={pasteNew}><ClipboardPaste size={16} /> Coller une note</button>
+      <QuickList title="Épinglées" icon={<Pin size={12} />} items={pinned} current={current} />
+      <QuickList title="Récentes" icon={<Clock size={12} />} items={recent} current={current} />
       <div className="nt-tree" role="tree">
+        {(pinned.length > 0 || recent.length > 0) && <div className="nt-quick-title">Dossiers</div>}
         {notes.length
           ? <Branch parent={null} depth={0} {...{ notes, open, toggle, current, renaming, setRenaming, rename, create, remove }} />
           : <p className="nt-empty-tree">Aucune note pour l’instant. Copie une réponse de Claude, puis « Coller une note » ou <kbd>Ctrl V</kbd>.</p>}
@@ -165,6 +170,20 @@ export function Notes({ id }: { id?: string }) {
 
   if (mobile) return <div className="notes">{id && current ? doc : tree}</div>;
   return <div className="notes">{tree}{doc}</div>;
+}
+
+function QuickList({ title, icon, items, current }: { title: string; icon: ReactNode; items: Note[]; current?: Note }) {
+  if (!items.length) return null;
+  return (
+    <div className="nt-quick">
+      <div className="nt-quick-title">{icon}{title}</div>
+      {items.map(n => (
+        <button key={n.id} className={`nt-quick-row ${current?.id === n.id ? 'active' : ''}`} onClick={() => go('notes/' + n.id)}>
+          <FileText size={14} /><span>{n.name}</span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 type BranchProps = {
@@ -201,6 +220,7 @@ function Branch(p: BranchProps) {
                 ? <><ChevronRight size={14} className={`nt-chev ${isOpen ? 'open' : ''}`} />{isOpen ? <FolderOpen size={16} className="nt-ico folder" /> : <Folder size={16} className="nt-ico folder" />}</>
                 : <><span className="nt-chev-space" /><FileText size={16} className="nt-ico" /></>}
               {label}
+              {n.pinned && <Pin size={12} className="nt-pinned" aria-label="Épinglée" />}
               {task && <Link2 size={13} className="nt-linked" aria-label={`Liée au ticket ${task.name}`} />}
             </button>
             {folder && p.renaming !== n.id && (
@@ -239,10 +259,13 @@ function Welcome({ onPaste, onNew }: { onPaste: () => void; onNew: () => void })
 }
 
 function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void; mobile: boolean }) {
-  const { db, saveNote, toast } = useStore();
-  const { editTask } = useEditors();
-  // null : lecture ; texte : en cours de modification. Une note vide s'ouvre directement en écriture.
-  const [draft, setDraft] = useState<string | null>(() => (note.content.trim() ? null : ''));
+  const { db, saveNote, saveTasks, toast } = useStore();
+  const { editTask, editEvent } = useEditors();
+  // null : lecture ; texte : en cours de modification. Une note vide (ou un compte rendu tout juste créé) s'ouvre en écriture.
+  const [draft, setDraft] = useState<string | null>(() => {
+    if (openInEdit.delete(note.id) || !note.content.trim()) return note.content;
+    return null;
+  });
   const [mode, setModeState] = useState<Mode>(readMode);
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -329,6 +352,95 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
 
   const { html, headings } = useMemo(() => renderMarkdown(withoutTitle(note.content, note.name)), [note.content, note.name]);
 
+  /* ----- Cases à cocher ⇄ tickets ----- */
+  const boxes = useMemo(() => checkboxes(note.content), [note.content]);
+  const pending = boxes.filter(b => !b.checked && !b.ticket && plainText(b.text));
+  const event = note.event_id ? db.events.find(e => e.id === note.event_id) : undefined;
+  const task = note.task_id ? db.tasks.find(t => t.id === note.task_id) : undefined;
+
+  const makeTickets = (items: Checkbox[]) => {
+    if (!items.length) return;
+    const base = Math.max(0, ...db.tasks.map(t => t.position));
+    const subject_id = event?.subject_id ?? task?.subject_id ?? null;
+    const created: Task[] = items.map((b, i) => ({
+      id: newId('t'), name: plainText(b.text).slice(0, 200), subject_id, status: 'À faire', priority: 'P2', owner: '', due_date: null, position: base + i + 1,
+    }));
+    saveTasks(created);
+    saveNote({ ...latest.current, content: linkTickets(latest.current.content, items.map((b, i) => ({ line: b.line, ticket: created[i].id }))) });
+    toast(created.length > 1 ? `${created.length} tickets créés dans le Kanban` : 'Ticket créé dans le Kanban');
+  };
+  const toggleBox = (b: Checkbox, checked: boolean) => {
+    const lines = latest.current.content.split('\n');
+    lines[b.line] = lines[b.line].replace(/\[( |x|X)\]/, checked ? '[x]' : '[ ]');
+    saveNote({ ...latest.current, content: lines.join('\n') });
+    const t = b.ticket ? db.tasks.find(x => x.id === b.ticket) : undefined;
+    if (t && (t.status === 'Terminé') !== checked) saveTasks([{ ...t, status: checked ? 'Terminé' : 'À faire' }]);
+  };
+  const actions = useRef({ makeTickets, toggleBox });
+  actions.current = { makeTickets, toggleBox };
+
+  // Cases cliquables, pastilles de ticket (statut en direct) et bouton « → Ticket » sur chaque case libre.
+  useEffect(() => {
+    const root = articleRef.current;
+    if (!root) return;
+    const inputs = root.querySelectorAll<HTMLInputElement>('li > input[type="checkbox"], li > p > input[type="checkbox"]');
+    inputs.forEach((inp, i) => {
+      const b = boxes[i];
+      const li = inp.closest('li');
+      if (!b || !li) return;
+      const t = b.ticket ? db.tasks.find(x => x.id === b.ticket) : undefined;
+      inp.disabled = false;
+      inp.checked = b.checked || t?.status === 'Terminé';
+      inp.onchange = () => actions.current.toggleBox(b, inp.checked);
+      li.classList.toggle('md-done', inp.checked);
+      const chip = li.querySelector<HTMLAnchorElement>(':scope > a.md-ticket, :scope > p > a.md-ticket');
+      if (chip) {
+        chip.textContent = t ? t.status : 'Ticket supprimé';
+        chip.dataset.status = t ? t.status : 'gone';
+        chip.title = t ? `Ouvrir le ticket « ${t.name} »` : 'Ce ticket n’existe plus';
+      }
+      let btn = li.querySelector<HTMLButtonElement>(':scope > .md-to-ticket, :scope > p > .md-to-ticket');
+      if (b.ticket || b.checked || !plainText(b.text)) { btn?.remove(); return; }
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'md-to-ticket';
+        btn.textContent = '→ Ticket';
+        btn.title = 'Créer un ticket Kanban à partir de cette ligne';
+        (inp.parentElement === li ? li : inp.parentElement!).appendChild(btn);
+      }
+      btn.onclick = () => actions.current.makeTickets([b]);
+    });
+  }, [html, draft, boxes, db.tasks]);
+
+  const onArticleClick = (e: ReactMouseEvent) => {
+    const chip = (e.target as HTMLElement).closest<HTMLAnchorElement>('a.md-ticket');
+    if (!chip) return;
+    e.preventDefault();
+    const t = db.tasks.find(x => x.id === chip.dataset.ticket);
+    if (t) editTask(t); else toast('Ce ticket n’existe plus', 'error');
+  };
+
+  /* ----- Export ----- */
+  const fileName = (note.name.trim() || 'note').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80);
+  const exportAs = (kind: 'pdf' | 'word' | 'md') => {
+    const md = current() ?? note.content;
+    if (kind === 'md') return download(new Blob([md], { type: 'text/markdown;charset=utf-8' }), fileName + '.md');
+    if (kind === 'word') {
+      const body = renderMarkdown(withoutTitle(md, note.name)).html;
+      const doc = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${escapeHtml(note.name)}</title><style>${WORD_CSS}</style></head><body><h1>${escapeHtml(note.name)}</h1>${body}</body></html>`;
+      return download(new Blob(['\ufeff', doc], { type: 'application/msword' }), fileName + '.doc');
+    }
+    // PDF : impression de la note seule (choisir « Enregistrer au format PDF »).
+    if (draft !== null) finish();
+    setTimeout(() => {
+      document.body.classList.add('print-note');
+      const done = () => { document.body.classList.remove('print-note'); removeEventListener('afterprint', done); };
+      addEventListener('afterprint', done);
+      window.print();
+    }, 80);
+  };
+
   // Bouton « Copier » sur chaque bloc de code.
   useEffect(() => {
     const root = articleRef.current;
@@ -349,7 +461,6 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
   const path = ancestors(db.notes, note);
   const folders = db.notes.filter(n => n.kind === 'folder');
   const folderLabel = (f: Note) => [...ancestors(db.notes, f), f].map(x => x.name).join(' / ');
-  const task = note.task_id ? db.tasks.find(t => t.id === note.task_id) : undefined;
   const tasks = [...db.tasks].sort((a, b) => Number(!isActive(a.status)) - Number(!isActive(b.status)) || collator.compare(a.name, b.name));
   const toc = !mobile && draft === null && headings.length >= 3;
 
@@ -371,6 +482,17 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
           {draft === null
             ? <button className="btn" onClick={startEdit}><Pencil size={15} /> <span className="hide-sm">Modifier</span></button>
             : <button className="btn primary" onClick={finish}><Check size={15} /> Terminé</button>}
+          {draft === null && pending.length > 0 && (
+            <button className="btn nt-make-tickets" title="Créer un ticket Kanban pour chaque case non cochée" onClick={() => {
+              if (confirm(`Créer ${pending.length} ticket${pending.length > 1 ? 's' : ''} dans le Kanban ?\n\n${pending.map(b => '• ' + plainText(b.text)).join('\n')}`)) makeTickets(pending);
+            }}>
+              <ListPlus size={15} /> <span className="hide-sm">{pending.length} ticket{pending.length > 1 ? 's' : ''}</span>
+            </button>
+          )}
+          <button className={`icon-btn bordered ${note.pinned ? 'on' : ''}`} title={note.pinned ? 'Désépingler' : 'Épingler en haut de la liste'} aria-label={note.pinned ? 'Désépingler' : 'Épingler'} aria-pressed={note.pinned} onClick={() => saveNote({ ...note, pinned: !note.pinned })}>
+            {note.pinned ? <PinOff size={16} /> : <Pin size={16} />}
+          </button>
+          <ExportMenu onPick={exportAs} />
           <button className="icon-btn bordered" title="Remplacer par le presse-papier" aria-label="Remplacer par le presse-papier" onClick={replaceFromClipboard}><ClipboardPaste size={16} /></button>
           <button className="icon-btn bordered" title="Copier le Markdown" aria-label="Copier le Markdown" onClick={copy}><Copy size={16} /></button>
           <button className="icon-btn bordered danger" title="Supprimer la note" aria-label="Supprimer la note" onClick={onDelete}><Trash2 size={16} /></button>
@@ -401,6 +523,12 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
               </select>
             </label>
             {task && <button className="link" onClick={() => editTask(task)}>Ouvrir le ticket</button>}
+            {event && (
+              <button type="button" className="nt-field linked nt-event" onClick={() => editEvent(event)} title="Ouvrir la réunion">
+                <CalendarDays size={14} />
+                <b>Réunion du {new Date(event.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}{event.start_time ? ' · ' + event.start_time.slice(0, 5) : ''}</b>
+              </button>
+            )}
           </div>
 
           {draft !== null && mode === 'rich' ? (
@@ -421,8 +549,8 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
             />
           ) : (
             <article
-              ref={articleRef} className="prose" title="Double-clic pour modifier"
-              onDoubleClick={e => { if (!(e.target as HTMLElement).closest('a, pre, .md-copy')) startEdit(); }}
+              ref={articleRef} className="prose" title="Double-clic pour modifier" onClick={onArticleClick}
+              onDoubleClick={e => { if (!(e.target as HTMLElement).closest('a, pre, button, input')) startEdit(); }}
               dangerouslySetInnerHTML={{ __html: html }}
             />
           )}
@@ -430,6 +558,50 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
         {toc && <Toc headings={headings} />}
       </div>
     </section>
+  );
+}
+
+const escapeHtml = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+/** Mise en page du fichier Word : simple et lisible, indépendante du thème. */
+const WORD_CSS = `body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.5;color:#1f2433}
+h1{font-size:22pt;color:#141a29;margin:0 0 12pt}h2{font-size:15pt;color:#141a29;border-bottom:1px solid #dde1e7;padding-bottom:3pt;margin:18pt 0 6pt}
+h3{font-size:12.5pt;color:#141a29;margin:14pt 0 4pt}a{color:#5048e5}code{font-family:Consolas,monospace;background:#f1f3f6;font-size:10pt}
+pre{font-family:Consolas,monospace;background:#f6f7f9;border:1px solid #e3e6eb;padding:8pt;font-size:9.5pt}
+blockquote{border-left:3px solid #5048e5;margin:8pt 0;padding-left:10pt;color:#5c6474}
+table{border-collapse:collapse;margin:8pt 0}th,td{border:1px solid #d5d9e0;padding:4pt 8pt;vertical-align:top}th{background:#f1f3f6}
+.md-alert{border:1px solid #c9c6f7;background:#f0f0fe;padding:6pt 10pt;margin:8pt 0}.md-alert-title{font-weight:bold;color:#5048e5;margin:0}
+.md-ticket{display:none}`;
+
+function ExportMenu({ onPick }: { onPick: (k: 'pdf' | 'word' | 'md') => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    addEventListener('pointerdown', close);
+    addEventListener('keydown', esc);
+    return () => { removeEventListener('pointerdown', close); removeEventListener('keydown', esc); };
+  }, [open]);
+  const items: { k: 'pdf' | 'word' | 'md'; label: string; hint: string }[] = [
+    { k: 'pdf', label: 'PDF', hint: 'Imprimer → Enregistrer au format PDF' },
+    { k: 'word', label: 'Word', hint: 'Fichier .doc mis en forme' },
+    { k: 'md', label: 'Markdown', hint: 'Fichier .md brut' },
+  ];
+  return (
+    <div className="new-menu nt-export" ref={ref}>
+      <button className="icon-btn bordered" title="Exporter" aria-label="Exporter" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(o => !o)}><Download size={16} /></button>
+      {open && (
+        <div className="menu" role="menu">
+          {items.map(it => (
+            <button key={it.k} role="menuitem" onClick={() => { setOpen(false); onPick(it.k); }}>
+              <span className="menu-ico"><Download size={16} /></span>
+              <span className="menu-text"><b>{it.label}</b><small>{it.hint}</small></span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

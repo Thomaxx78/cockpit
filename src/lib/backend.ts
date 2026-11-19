@@ -53,14 +53,16 @@ const COLUMNS: Record<Table, string[]> = {
   subjects: ['id', 'name', 'category', 'status', 'summary', 'confirmed', 'hypothesis', 'questions', 'people', 'next_step', 'due_date', 'origin', 'color', 'notes', 'position'],
   tasks: ['id', 'name', 'subject_id', 'status', 'priority', 'owner', 'due_date', 'position'],
   events: ['id', 'date', 'name', 'subject_id', 'kind', 'start_time', 'end_time', 'description'],
-  notes: ['id', 'parent_id', 'kind', 'name', 'content', 'task_id', 'position', 'updated_at'],
+  notes: ['id', 'parent_id', 'kind', 'name', 'content', 'task_id', 'event_id', 'pinned', 'position', 'updated_at'],
 };
-const TEXT_DEFAULTS: Record<string, string> = { description: '', content: '' };
-const NULLABLE = ['due_date', 'subject_id', 'start_time', 'end_time', 'parent_id', 'task_id', 'updated_at'];
+const TEXT_DEFAULTS: Record<string, string | boolean> = { description: '', content: '', pinned: false };
+const NULLABLE = ['due_date', 'subject_id', 'start_time', 'end_time', 'parent_id', 'task_id', 'event_id', 'updated_at'];
+/** Colonnes ajoutées aux notes après leur création (bases où schema.sql n'a pas été relancé). */
+const NOTE_V2 = ['event_id', 'pinned'];
 const TIME_COLUMNS = ['start_time', 'end_time'];
 
 /** Faux tant que la migration des heures (supabase/schema.sql) n'a pas été exécutée. */
-export const features = { eventTimes: true, eventDescription: true, notes: true };
+export const features = { eventTimes: true, eventDescription: true, notes: true, notesV2: true };
 
 export function clean<T extends Table>(table: T, row: Record<string, unknown>): Row<T> {
   const out: Record<string, unknown> = {};
@@ -76,6 +78,7 @@ const forDb = (table: Table, row: Record<string, unknown>) => {
   const r = clean(table, row) as Record<string, unknown>;
   if (table === 'events' && !features.eventTimes) for (const c of TIME_COLUMNS) delete r[c];
   if (table === 'events' && !features.eventDescription) delete r.description;
+  if (table === 'notes' && !features.notesV2) for (const c of NOTE_V2) delete r[c];
   return r;
 };
 
@@ -92,6 +95,7 @@ function supabaseBackend(sb: SupabaseClient): Backend {
       // Table des notes absente tant que supabase/schema.sql n'a pas été relancé : le reste fonctionne.
       features.notes = !n.error;
       if (n.error) console.warn('Notes indisponibles :', n.error.message);
+      if (n.data?.length && !('pinned' in n.data[0])) features.notesV2 = false;
       const err = s.error || t.error || e.error;
       if (err) throw err;
       if (e.data!.length && !('start_time' in e.data![0])) features.eventTimes = false;
@@ -112,6 +116,10 @@ function supabaseBackend(sb: SupabaseClient): Backend {
       }
       if (error && table === 'events' && features.eventDescription && /description/.test(error.message)) {
         features.eventDescription = false; // colonne absente : on réessaie sans la description
+        ({ error } = await sb.from(table).upsert(rows.map(r => forDb(table, r))));
+      }
+      if (error && table === 'notes' && features.notesV2 && /event_id|pinned/.test(error.message)) {
+        features.notesV2 = false; // colonnes absentes : on réessaie sans (épingle et lien réunion non enregistrés)
         ({ error } = await sb.from(table).upsert(rows.map(r => forDb(table, r))));
       }
       if (error) throw error;
@@ -235,6 +243,7 @@ function localBackend(): Backend {
         db.events.forEach(e => { if (e.subject_id === id) e.subject_id = null; });
       }
       if (table === 'tasks') db.notes.forEach(n => { if (n.task_id === id) n.task_id = null; });
+      if (table === 'events') db.notes.forEach(n => { if (n.event_id === id) n.event_id = null; });
       if (table === 'notes') { const gone = noteDescendants(db.notes, id); db.notes = db.notes.filter(n => !gone.has(n.id)); }
       write(db);
       if (old && (table === 'tasks' || table === 'subjects')) log([entry(table, old, 'deleted', old.status, null)]);

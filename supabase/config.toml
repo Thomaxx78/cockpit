@@ -12,3 +12,7 @@ verify_jwt = false
 [functions.outlook-sync]
 # Appelée par pg_cron, sans session utilisateur : protégée par l’en-tête x-cron-secret.
 verify_jwt = false
+
+[functions.weekly-summary]
+# Appelée par pg_cron le vendredi, sans session utilisateur : protégée par l’en-tête x-cron-secret.
+verify_jwt = false

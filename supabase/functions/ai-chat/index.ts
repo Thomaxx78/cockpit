@@ -81,7 +81,7 @@ Deno.serve(async req => {
       apiKey,
       baseUrl: env('AI_BASE_URL'),
       model: env('AI_MODEL') ?? env('GROQ_MODEL'),
-      maxTokens: num('AI_MAX_TOKENS', 1200),
+      maxTokens: num('AI_MAX_TOKENS', 3000), // assez pour rédiger une note
       reasoningEffort: env('AI_REASONING_EFFORT'),
     });
     const out = await runAgent(llm, repo, { message: body.message, history: body.history, refs: body.refs });

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Video } from 'lucide-react';
+import { NotepadText, Video } from 'lucide-react';
 import { useEditors } from './editors';
 import { Dot } from './ui';
+import { useMeetingNotes } from '../lib/notes';
 import { useStore } from '../lib/store';
 import type { CalEvent } from '../lib/types';
 import { fmtTime, meetingLink, timeRange, todayIso, toMinutes } from '../lib/utils';
@@ -22,6 +23,7 @@ function useNowMinutes() {
 export function NextMeeting({ events }: { events: CalEvent[] }) {
   const { subject } = useStore();
   const { editEvent } = useEditors();
+  const meeting = useMeetingNotes();
   const now = useNowMinutes();
   const today = todayIso();
   // Sans heure de fin, on compte une heure.
@@ -50,6 +52,9 @@ export function NextMeeting({ events }: { events: CalEvent[] }) {
           <span>{e.name}</span>
         </span>
         <span className="meta">{[timeRange(e.start_time!.slice(0, 5), e.end_time?.slice(0, 5)), s?.name].filter(Boolean).join(' · ')}</span>
+      </button>
+      <button className="btn join-notes" onClick={() => meeting.open(e)} title={meeting.notesOf(e.id).length ? 'Ouvrir le compte rendu' : 'Prendre des notes pendant la réunion'}>
+        <NotepadText size={16} /> <span className="hide-sm">Notes</span>
       </button>
       {link && (
         <a className="btn primary join-btn" href={link.url} target="_blank" rel="noopener noreferrer" title={`Rejoindre sur ${link.provider === 'Meet' ? 'Google Meet' : link.provider}`}>

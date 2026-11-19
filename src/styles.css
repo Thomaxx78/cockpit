@@ -1156,3 +1156,24 @@ button.daynum:hover { background: var(--sunken); }
 .linked-note:hover { border-color: var(--brand); color: var(--brand); }
 .linked-note svg { color: var(--brand); flex-shrink: 0; }
 .linked-note small { margin-left: auto; color: var(--muted); font-weight: 400; }
+
+/* ---------- Calendrier : tickets à planifier (glisser-déposer) ---------- */
+.cal-tray { border: 1px dashed var(--line-2); border-radius: var(--radius); background: var(--surface); padding: 4px 6px; transition: border-color .15s, background .15s; }
+.cal-tray.dragging { border-color: var(--brand); }
+.cal-tray.drop-over { background: var(--brand-soft); }
+.cal-tray-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; font-size: var(--fs-sm); color: var(--ink); text-align: left; }
+.cal-tray-head .chev { color: var(--muted); transition: transform .15s; }
+.cal-tray-head .chev.closed { transform: rotate(-90deg); }
+.cal-tray-hint { margin-left: auto; color: var(--muted); font-size: var(--fs-xs); }
+.cal-tray-list { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 6px 8px; max-height: 132px; overflow-y: auto; }
+.cal-chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 280px; padding: 5px 10px 5px 6px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface-2); font-size: var(--fs-xs); font-weight: 500; color: var(--ink-2); cursor: grab;
+}
+.cal-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-chip .grip { color: var(--muted-2); flex-shrink: 0; }
+.cal-chip:hover { border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+.cal-chip:active { cursor: grabbing; }
+.cal-tray-empty { color: var(--muted); font-size: var(--fs-xs); padding: 4px 2px; }
+.evt.task[draggable='true'] { cursor: grab; }
+.day.drop-over { background: var(--brand-soft) !important; box-shadow: inset 0 0 0 2px var(--brand); }

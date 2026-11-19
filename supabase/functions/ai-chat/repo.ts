@@ -4,7 +4,7 @@ export type Proposal = { id: string; ops: Op[]; preview: string[]; expires_at: s
 
 /** Opération concrète et validée, prête à être exécutée (ou proposée). */
 export type Op =
-  | { kind: 'insert'; table: Table; row: Record<string, unknown>; label: string }
+  | { kind: 'insert'; table: Table; row: Record<string, unknown>; label: string; /** Créé pour une autre opération (dossier d'une note) : ne compte pas comme une modification groupée. */ auxiliary?: boolean }
   | { kind: 'update'; table: Table; id: string; patch: Record<string, unknown>; label: string }
   | { kind: 'delete'; table: Table; id: string; label: string };
 
@@ -29,7 +29,7 @@ export interface Repo {
 
 /** Implémentation en mémoire (tests). */
 export function memoryRepo(seed: Partial<Record<Table, AnyRow[]>>, now = () => new Date()): Repo & { data: Record<Table, AnyRow[]>; proposals: Map<string, Proposal & { status: string }>; requests: Date[] } {
-  const data = { tasks: [...(seed.tasks ?? [])], subjects: [...(seed.subjects ?? [])], events: [...(seed.events ?? [])] } as Record<Table, AnyRow[]>;
+  const data = { tasks: [...(seed.tasks ?? [])], subjects: [...(seed.subjects ?? [])], events: [...(seed.events ?? [])], notes: [...(seed.notes ?? [])] } as Record<Table, AnyRow[]>;
   const proposals = new Map<string, Proposal & { status: string }>();
   const requests: Date[] = [];
   let n = 0;
