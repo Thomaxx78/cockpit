@@ -127,14 +127,6 @@ export function App({ email }: { email: string | null }) {
             </a>
           ))}
         </nav>
-        <div className="side-subjects">
-          <div className="side-title">Sujets</div>
-          {db.subjects.filter(s => s.status !== 'Terminé' || parts[1] === s.id).map(s => (
-            <a key={s.id} href={'#/sujets/' + s.id} className={`side-subject ${parts[1] === s.id ? 'active' : ''}`}>
-              <span className="dot" style={{ background: s.color }} /><span>{s.name}</span>
-            </a>
-          ))}
-        </div>
         <div className="side-foot">
           {email ? <>
             <span className="side-user" title={email}>{email}</span>
