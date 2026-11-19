@@ -260,7 +260,7 @@ textarea { resize: vertical; }
   color: var(--brand-fill); /* logo sans fond : la montagne prend le violet du logo */
 }
 .brandmark.big { margin: 0 auto 6px; }
-.brandname { color: var(--side-ink-strong); font: 900 18px/1 Outfit, Inter, sans-serif; letter-spacing: -.3px; } /* police chargée seulement pour ce mot (index.html) */
+.brandname { color: var(--side-ink-strong); font: 600 18px/1 Outfit, Inter, sans-serif; letter-spacing: -.2px; } /* police chargée seulement pour ce mot (index.html) */
 .nav {
   display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: var(--r-md);
   font-weight: 500; transition: background .15s, color .15s;
