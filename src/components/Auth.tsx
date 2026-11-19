@@ -92,7 +92,7 @@ function PinLock() {
       </div>
 
       <div className="lock-center">
-        <div className="lock-icon"><Logo size={38} /></div>
+        <div className="lock-icon"><Logo size={60} /></div>
         <div className={`lock-msg ${state === 'error' ? 'is-error' : ''}`}>{state === 'busy' ? 'Vérification…' : state === 'ok' ? 'Déverrouillé' : message}</div>
         <div className={`pin-dots ${state}`}>
           {Array.from({ length: PIN_LENGTH }, (_, i) => <span key={i} className={i < pin.length ? 'on' : ''} />)}
