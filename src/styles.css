@@ -254,7 +254,7 @@ textarea { resize: vertical; }
   position: sticky; top: 0; height: 100vh;
   display: flex; flex-direction: column; padding: 20px 12px 12px; gap: 6px;
 }
-.brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 20px; }
+.brand { display: flex; align-items: center; gap: 3px; /* le dessin du logo a déjà ~5px de marge interne */ padding: 4px 8px 20px; }
 .brandmark {
   display: grid; place-items: center; flex-shrink: 0;
   color: var(--brand-fill); /* logo sans fond : la montagne prend le violet du logo */
