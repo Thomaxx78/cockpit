@@ -258,11 +258,12 @@ textarea { resize: vertical; }
 }
 .brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 20px; }
 .brandmark {
-  width: 36px; height: 36px; border-radius: var(--r-md); display: grid; place-items: center;
+  width: 42px; height: 42px; border-radius: var(--r-md); display: grid; place-items: center;
   background: #5048e5; color: #fff; flex-shrink: 0;
   box-shadow: var(--brandmark-shadow);
 }
 .brandmark.big { width: 52px; height: 52px; font-size: var(--fs-2xl); border-radius: 15px; margin: 0 auto 6px; }
+.brandname { color: var(--side-ink-strong); font-weight: 800; font-size: var(--fs-xl); letter-spacing: -.4px; }
 .nav {
   display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: var(--r-md);
   font-weight: 500; transition: background .15s, color .15s;
@@ -592,7 +593,7 @@ textarea { resize: vertical; }
   .app { grid-template-columns: 68px 1fr; }
   .sidebar { padding: 16px 10px; align-items: center; }
   .brand { padding: 4px 0 16px; }
-  .nav span, .side-foot { display: none; }
+  .brandname, .nav span, .side-foot { display: none; }
   .nav { justify-content: center; padding: 11px; }
   .grid-2 { grid-template-columns: 1fr; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -820,7 +821,7 @@ textarea { resize: vertical; }
    ============================================================ */
 .mobile-only { display: none; }
 .top-title { display: none; }
-.brandmark.small { width: 28px; height: 28px; border-radius: var(--r-md); font-size: var(--fs-md); box-shadow: var(--brandmark-shadow-sm); }
+.brandmark.small { width: 32px; height: 32px; border-radius: var(--r-md); font-size: var(--fs-md); box-shadow: var(--brandmark-shadow-sm); }
 .cap { text-transform: capitalize; }
 .cal-arrows { display: inline-flex; align-items: center; gap: 6px; }
 .task-row:focus-visible, .day:focus-visible, .kcard:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
