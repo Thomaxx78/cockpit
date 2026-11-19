@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type ReactNode } from 'react';
 import {
-  ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, Link2, NotebookPen,
-  Pencil, Trash2,
+  ArrowLeft, Check, ChevronRight, ClipboardPaste, Copy, FileCode2, FilePlus2, FileText, Folder, FolderOpen, FolderPlus, Link2, NotebookPen,
+  Pencil, Trash2, Type,
 } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { AutoTextarea } from '../components/ui';
@@ -11,6 +11,12 @@ import { newId, useStore } from '../lib/store';
 import { isActive, type Note } from '../lib/types';
 import { go, MOBILE, useMedia } from '../lib/utils';
 import '../styles/notes.css';
+
+// Éditeur visuel (Tiptap) chargé seulement quand on modifie une note.
+const NoteEditor = lazy(() => import('./NoteEditor').then(m => ({ default: m.NoteEditor })));
+const MODE_KEY = 'cockpit-notes-mode';
+type Mode = 'rich' | 'md';
+const readMode = (): Mode => { try { return localStorage.getItem(MODE_KEY) === 'md' ? 'md' : 'rich'; } catch { return 'rich'; } };
 
 const UNTITLED = 'Sans titre';
 const OPEN_KEY = 'cockpit-notes-open';
@@ -51,6 +57,7 @@ export function Notes({ id }: { id?: string }) {
   const current = id ? notes.find(n => n.id === id && n.kind === 'file') : undefined;
   const [open, setOpen] = useState<string[]>(readOpen);
   const [renaming, setRenaming] = useState<string | null>(null);
+  useEffect(() => { import('./NoteEditor').catch(() => {}); }, []); // éditeur prêt avant le premier « Modifier »
 
   const setOpenPersist = useCallback((f: (o: string[]) => string[]) => setOpen(o => {
     const next = f(o);
@@ -234,7 +241,12 @@ function Welcome({ onPaste, onNew }: { onPaste: () => void; onNew: () => void })
 function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void; mobile: boolean }) {
   const { db, saveNote, toast } = useStore();
   const { editTask } = useEditors();
-  const [draft, setDraft] = useState<string | null>(null); // null : lecture ; texte : en cours de modification
+  // null : lecture ; texte : en cours de modification. Une note vide s'ouvre directement en écriture.
+  const [draft, setDraft] = useState<string | null>(() => (note.content.trim() ? null : ''));
+  const [mode, setModeState] = useState<Mode>(readMode);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const getRich = useRef<(() => string) | null>(null);
   const [name, setName] = useState(note.name);
   const timer = useRef<number>();
   const latest = useRef(note);
@@ -247,17 +259,38 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
     clearTimeout(timer.current);
     if (text !== latest.current.content) saveNote({ ...latest.current, content: text });
   }, [saveNote]);
-  // Enregistre ce qui reste à la fermeture de la note.
   const draftRef = useRef(draft);
   draftRef.current = draft;
-  useEffect(() => () => { if (draftRef.current !== null) flush(draftRef.current); }, [flush]);
+  /** Markdown en cours : lu directement dans l'éditeur visuel (pas d'attente de sa temporisation). */
+  const current = useCallback(() => {
+    if (draftRef.current === null) return null;
+    return modeRef.current === 'rich' && getRich.current ? getRich.current() : draftRef.current;
+  }, []);
+  // Enregistre ce qui reste à la fermeture de la note.
+  useEffect(() => () => { const t = current(); if (t !== null) flush(t); }, [flush, current]);
 
   const change = (text: string) => {
+    draftRef.current = text;
     setDraft(text);
     clearTimeout(timer.current);
     timer.current = window.setTimeout(() => flush(text), 700);
   };
-  const finish = () => { if (draft !== null) flush(draft); setDraft(null); };
+  const startEdit = () => { draftRef.current = note.content; setDraft(note.content); };
+  const finish = () => {
+    const t = current();
+    if (t !== null) flush(t);
+    getRich.current = null;
+    setDraft(null);
+  };
+  const switchMode = () => {
+    const t = current() ?? note.content;
+    const next: Mode = mode === 'rich' ? 'md' : 'rich';
+    getRich.current = null;
+    draftRef.current = t;
+    setDraft(t);
+    setModeState(next);
+    try { localStorage.setItem(MODE_KEY, next); } catch { /* stockage indisponible */ }
+  };
 
   const saveName = () => {
     const v = name.trim() || UNTITLED;
@@ -271,13 +304,14 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
       const md = await readClipboard();
       if (!md) return toast('Le presse-papier est vide', 'error');
       saveNote({ ...note, content: md, name: note.name === UNTITLED ? firstHeading(md) ?? UNTITLED : note.name });
+      getRich.current = null;
       setDraft(null);
       toast('Note mise à jour');
     } catch { toast('Accès au presse-papier refusé : utilise Ctrl V', 'error'); }
   };
 
   const copy = async () => {
-    try { await navigator.clipboard.writeText(draft ?? note.content); toast('Markdown copié'); }
+    try { await navigator.clipboard.writeText(current() ?? note.content); toast('Markdown copié'); }
     catch { toast('Copie impossible', 'error'); }
   };
 
@@ -317,7 +351,6 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
   const folderLabel = (f: Note) => [...ancestors(db.notes, f), f].map(x => x.name).join(' / ');
   const task = note.task_id ? db.tasks.find(t => t.id === note.task_id) : undefined;
   const tasks = [...db.tasks].sort((a, b) => Number(!isActive(a.status)) - Number(!isActive(b.status)) || collator.compare(a.name, b.name));
-  const empty = !note.content.trim() && draft === null;
   const toc = !mobile && draft === null && headings.length >= 3;
 
   return (
@@ -330,8 +363,13 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
         </nav>
         <span className="grow" />
         <div className="nt-tools">
+          {draft !== null && (
+            <button className="btn ghost nt-mode" onClick={switchMode} title={mode === 'rich' ? 'Voir et modifier le Markdown brut' : 'Revenir à l’éditeur visuel'}>
+              {mode === 'rich' ? <><FileCode2 size={15} /> <span className="hide-sm">Markdown</span></> : <><Type size={15} /> <span className="hide-sm">Visuel</span></>}
+            </button>
+          )}
           {draft === null
-            ? <button className="btn" onClick={() => setDraft(note.content)}><Pencil size={15} /> <span className="hide-sm">Modifier</span></button>
+            ? <button className="btn" onClick={startEdit}><Pencil size={15} /> <span className="hide-sm">Modifier</span></button>
             : <button className="btn primary" onClick={finish}><Check size={15} /> Terminé</button>}
           <button className="icon-btn bordered" title="Remplacer par le presse-papier" aria-label="Remplacer par le presse-papier" onClick={replaceFromClipboard}><ClipboardPaste size={16} /></button>
           <button className="icon-btn bordered" title="Copier le Markdown" aria-label="Copier le Markdown" onClick={copy}><Copy size={16} /></button>
@@ -365,19 +403,26 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
             {task && <button className="link" onClick={() => editTask(task)}>Ouvrir le ticket</button>}
           </div>
 
-          {draft !== null ? (
+          {draft !== null && mode === 'rich' ? (
+            <div onKeyDown={e => e.key === 'Escape' && finish()}>
+              <Suspense fallback={<div className="nt-rich-loading">Chargement de l’éditeur…</div>}>
+                <NoteEditor
+                  initial={draft} onChange={change} getRef={getRich}
+                  placeholder="Écris ici, ou colle une réponse de Claude (Ctrl V). Les boutons ci-dessus mettent en forme : titres, gras, listes, tableaux…"
+                />
+              </Suspense>
+            </div>
+          ) : draft !== null ? (
             <AutoTextarea
               className="nt-editor" autoFocus value={draft} spellCheck
               placeholder={'# Titre\n\nÉcris ou colle du Markdown…'}
               onChange={e => change(e.target.value)} onPaste={pasteInEditor}
               onKeyDown={e => e.key === 'Escape' && finish()}
             />
-          ) : empty ? (
-            <PasteZone onPaste={replaceFromClipboard} onWrite={() => setDraft('')} />
           ) : (
             <article
               ref={articleRef} className="prose" title="Double-clic pour modifier"
-              onDoubleClick={e => { if (!(e.target as HTMLElement).closest('a, pre, .md-copy')) setDraft(note.content); }}
+              onDoubleClick={e => { if (!(e.target as HTMLElement).closest('a, pre, .md-copy')) startEdit(); }}
               dangerouslySetInnerHTML={{ __html: html }}
             />
           )}
@@ -385,19 +430,6 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
         {toc && <Toc headings={headings} />}
       </div>
     </section>
-  );
-}
-
-function PasteZone({ onPaste, onWrite }: { onPaste: () => void; onWrite: () => void }) {
-  return (
-    <div className="nt-pastezone">
-      <ClipboardPaste size={28} />
-      <p><b>Colle ici le texte généré par Claude</b><br />Appuie sur <kbd>Ctrl V</kbd> : la note s’affiche directement mise en forme.</p>
-      <div className="row-gap">
-        <button className="btn primary" onClick={onPaste}><ClipboardPaste size={15} /> Coller</button>
-        <button className="btn" onClick={onWrite}><Pencil size={15} /> Écrire</button>
-      </div>
-    </div>
   );
 }
 

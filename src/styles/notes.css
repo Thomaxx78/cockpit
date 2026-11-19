@@ -90,15 +90,6 @@
 }
 .nt-editor:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
 
-.nt-pastezone {
-  display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;
-  padding: 56px 24px; border: 2px dashed var(--line-2); border-radius: var(--radius); color: var(--muted);
-  background: color-mix(in srgb, var(--brand) 3%, var(--surface));
-}
-.nt-pastezone > svg { color: var(--brand); }
-.nt-pastezone p { margin: 0; line-height: 1.6; }
-.nt-pastezone b { color: var(--ink); font-size: var(--fs-lg); }
-
 .nt-welcome { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 48px; }
 .nt-welcome h3 { margin: 4px 0 0; font-size: var(--fs-xl); letter-spacing: -.3px; }
 .nt-welcome p { margin: 0; max-width: 520px; color: var(--muted); line-height: 1.6; }
@@ -176,6 +167,56 @@
 .md-warning { --a: var(--amber); --a-soft: var(--amber-soft); }
 .md-caution { --a: var(--red); --a-soft: var(--red-soft); }
 
+/* ----- Éditeur visuel (Tiptap) : même rendu que la lecture ----- */
+.nt-rich-wrap { position: relative; }
+.nt-rich-loading { padding: 40px 0; color: var(--muted); font-size: var(--fs-sm); }
+.nt-toolbar {
+  position: sticky; top: 72px; z-index: 5;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 2px;
+  margin: 0 0 22px; padding: 5px 6px; border: 1px solid var(--line); border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-sm);
+}
+.tb-group { display: flex; align-items: center; gap: 1px; padding: 0 4px; }
+.tb-group + .tb-group { border-left: 1px solid var(--line); }
+.tb-btn {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 7px; color: var(--muted); flex-shrink: 0;
+  transition: background .12s, color .12s;
+}
+.tb-btn:hover:not(:disabled) { background: var(--sunken); color: var(--ink); }
+.tb-btn.on { background: var(--brand-soft); color: var(--brand-strong); }
+.tb-btn:disabled { opacity: .35; cursor: default; }
+.tb-text { padding: 5px 8px; border-radius: 7px; font-size: var(--fs-xs); font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.tb-text:hover { background: var(--sunken); }
+.tb-text.danger { color: var(--red); }
+.tb-text.danger:hover { background: var(--red-soft); }
+.nt-mode { color: var(--muted); }
+
+.nt-rich { outline: none; min-height: 320px; padding-bottom: 40px; caret-color: var(--brand); }
+.nt-rich p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--muted-2);
+}
+.nt-rich ::selection { background: color-mix(in srgb, var(--brand) 22%, transparent); }
+.nt-rich a { cursor: text; }
+.nt-rich hr.ProseMirror-selectednode { box-shadow: 0 0 0 3px var(--brand-soft); }
+
+/* Cases à cocher */
+.prose ul[data-type='taskList'] { list-style: none; padding-left: 0; }
+.prose ul[data-type='taskList'] li { display: flex; align-items: flex-start; gap: 8px; margin-left: 0; padding-left: 0; }
+.prose ul[data-type='taskList'] li > label { flex-shrink: 0; margin-top: .3em; user-select: none; }
+.prose ul[data-type='taskList'] li > div { flex: 1; min-width: 0; }
+.prose ul[data-type='taskList'] li > div > p { margin: 0; }
+.prose ul[data-type='taskList'] li[data-checked='true'] > div { color: var(--muted); text-decoration: line-through; }
+.prose ul[data-type='taskList'] input[type='checkbox'] { width: 15px; height: 15px; margin: 0; cursor: pointer; }
+.prose li > p { margin: 0; }
+
+/* Tableaux dans l'éditeur */
+.nt-rich .tableWrapper { margin: 1.2em 0; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
+.nt-rich table { margin: 0; table-layout: fixed; }
+.nt-rich td, .nt-rich th { position: relative; min-width: 80px; }
+.nt-rich td > p, .nt-rich th > p { margin: 0; }
+.nt-rich .selectedCell::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--brand) 12%, transparent); pointer-events: none; }
+
 /* ---------- Tablette & téléphone ---------- */
 @media (max-width: 1100px) {
   .notes { grid-template-columns: 236px minmax(0, 1fr); gap: 16px; }
@@ -187,6 +228,9 @@
 }
 @media (max-width: 700px) {
   .notes { display: block; }
+  .nt-toolbar { top: calc(56px + env(safe-area-inset-top)); margin: 0 -18px 16px; padding: 4px 6px; border-radius: 0; border-left: 0; border-right: 0; flex-wrap: nowrap; overflow-x: auto; }
+  .nt-toolbar .grow { display: none; }
+  .tb-btn { width: 36px; height: 36px; }
   .nt-side { position: static; max-height: none; padding: 14px 8px 8px; }
   .nt-main { padding: 10px 8px 10px 4px; font-size: var(--fs-lg); }
   .nt-doc { border-radius: 16px; }
