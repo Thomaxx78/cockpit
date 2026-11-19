@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 export type Theme = 'system' | 'light' | 'dark';
 
 export const THEME_KEY = 'cockpit-theme';
-const COLORS = { light: '#f1f3f6', dark: '#0a1020' } as const;
+const COLORS = { light: '#e6e9ee', dark: '#070b16' } as const;
 const EVENT = 'cockpit-theme-change';
 
 const isTheme = (v: unknown): v is Theme => v === 'system' || v === 'light' || v === 'dark';

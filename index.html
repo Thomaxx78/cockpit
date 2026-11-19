@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f1f3f6" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0a1020" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#e6e9ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#070b16" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <script>
@@ -16,7 +16,7 @@
           var r = document.documentElement;
           r.setAttribute('data-theme', t);
           r.style.colorScheme = t;
-          var c = t === 'dark' ? '#0a1020' : '#f1f3f6';
+          var c = t === 'dark' ? '#070b16' : '#e6e9ee';
           var m = document.querySelectorAll('meta[name="theme-color"]');
           for (var i = 0; i < m.length; i++) { m[i].setAttribute('data-original', m[i].content); m[i].content = c; }
         } catch (e) { /* stockage indisponible : on suit le système */ }
