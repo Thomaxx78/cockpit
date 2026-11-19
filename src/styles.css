@@ -1,8 +1,8 @@
 :root {
-  --bg: #fafbfc;
+  --bg: #f1f3f6;
   --surface: #ffffff;
   --surface-2: #f8f9fb;
-  --sunken: #f1f3f6;
+  --sunken: #eaedf2;
   --ink: #141a29;
   --ink-2: #3a4254;
   --muted: #5c6474;
@@ -92,7 +92,7 @@
    Spécificité : :root:not([data-theme="light"]) et :root[data-theme="dark"] (0,2,0)
    l'emportent sur :root (0,1,0), quel que soit l'ordre dans le fichier. */
 :root[data-theme="dark"] {
-  --bg: #0d1322;
+  --bg: #0a1020;
   --surface: #151d30;
   --surface-2: #1a2338;
   --sunken: #111829;
@@ -158,7 +158,7 @@
 @media (prefers-color-scheme: dark) {
   /* Copie conforme de :root[data-theme="dark"] — garder synchronisé */
   :root:not([data-theme="light"]) {
-    --bg: #0d1322;
+    --bg: #0a1020;
     --surface: #151d30;
     --surface-2: #1a2338;
     --sunken: #111829;
