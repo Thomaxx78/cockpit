@@ -37,49 +37,76 @@ const SEGMENTS = RIDGE.slice(1).map(([bx, by], i) => {
 });
 const WALK_MS = SEGMENTS.reduce((s, g) => s + g.ms, 0) + SUMMIT_PAUSE;
 
-/** Pose du randonneur à l'instant `ms` : position des pieds, direction de la pente, distance parcourue. */
+const LEAN_UP = 0.6, LEAN_DOWN = -0.2; // penché en avant en montée, en arrière en descente
+const BLEND = 1.2; // unités de crête sur lesquelles on passe d'une pose à l'autre
+const RAISE_MS = 380; // montée et descente des bras au sommet
+const mix = (a: number, b: number, k: number) => a + (b - a) * k;
+const ease = (k: number) => k * k * (3 - 2 * k); // départ et arrivée en douceur
+const segLean = (i: number) => (SEGMENTS[i].dy < 0 ? LEAN_UP : LEAN_DOWN);
+
+/**
+ * Pose du randonneur à l'instant `ms`. Tout varie en continu, sans à-coup :
+ * - `amp` (ampleur du pas) retombe à 0 aux changements de pente et au sommet : les pieds se
+ *   rejoignent avant que la pente change (sinon ils sauteraient d'une pente à l'autre) ;
+ * - `lean` passe progressivement d'une inclinaison à l'autre ;
+ * - `raise` (bras levés) monte puis redescend en douceur pendant la pause au sommet.
+ */
 function hikerAt(ms: number) {
-  let t = ms % WALK_MS, dist = 0;
+  const loop = ms % WALK_MS;
+  let t = loop, dist = 0;
   for (let i = 0; i < SEGMENTS.length; i++) {
     const g = SEGMENTS[i];
     if (t < g.ms) {
       const d = g.len * (t / g.ms);
-      return { x: g.ax + g.dx * d, y: g.ay + g.dy * d, dx: g.dx, dy: g.dy, dist: dist + d, summit: false, fade: ms % WALK_MS };
+      const near = Math.min(1, d / BLEND, (g.len - d) / BLEND);
+      // Inclinaison : partie de celle du tronçon précédent (debout au sortir du sommet),
+      // tend vers « debout » en approchant du sommet.
+      let lean = segLean(i);
+      if (d < BLEND && i > 0) lean = mix(i === 1 ? 0 : segLean(i - 1), lean, ease(d / BLEND));
+      if (g.len - d < BLEND && i === 0) lean = mix(0, lean, ease((g.len - d) / BLEND));
+      return { x: g.ax + g.dx * d, y: g.ay + g.dy * d, slope: g.dy / g.dx, dist: dist + d, amp: ease(near), lean, raise: 0, loop };
     }
     t -= g.ms; dist += g.len;
     if (i === 0) { // pause au grand sommet
-      if (t < SUMMIT_PAUSE) return { x: RIDGE[1][0], y: RIDGE[1][1], dx: 1, dy: 0, dist, summit: true, fade: ms % WALK_MS };
+      if (t < SUMMIT_PAUSE) {
+        const raise = ease(Math.min(1, t / RAISE_MS, (SUMMIT_PAUSE - t) / RAISE_MS));
+        return { x: RIDGE[1][0], y: RIDGE[1][1], slope: 0, dist, amp: 0, lean: 0, raise, loop };
+      }
       t -= SUMMIT_PAUSE;
     }
   }
-  return { x: RIDGE[4][0], y: RIDGE[4][1], dx: 1, dy: 0, dist, summit: false, fade: ms % WALK_MS };
+  return { x: RIDGE[4][0], y: RIDGE[4][1], slope: 0, dist, amp: 0, lean: 0, raise: 0, loop };
 }
 
 /** Petit bonhomme bâton : pieds posés sur la pente, buste penché dans la montée, bras et jambes alternés. */
 function Hiker({ ms, still }: { ms: number; still: boolean }) {
-  const h = still ? { x: RIDGE[1][0], y: RIDGE[1][1], dx: 1, dy: 0, dist: 0, summit: true, fade: WALK_MS / 2 } : hikerAt(ms);
+  const h = still
+    ? { x: RIDGE[1][0], y: RIDGE[1][1], slope: 0, dist: 0, amp: 0, lean: 0, raise: 1, loop: WALK_MS / 2 }
+    : hikerAt(ms);
   const phase = h.dist * 1.7; // ≈ 2 pas par 3,7 unités de crête
-  const swing = h.summit ? 0 : Math.sin(phase);
+  const swing = Math.sin(phase) * h.amp;
   // Dessin en coordonnées locales (pieds en 0,0), agrandi de HIKER_SCALE autour du point
   // de crête : agrandir autour de ce point garde les pieds sur la pente. Pas mesurés à
   // l'horizontale (sur une pente raide, les jambes se confondraient), y suit la pente.
-  const slope = h.dy / (h.dx || 1);
   const sx = swing * 0.85;
-  const f1 = [sx, sx * slope];
-  const f2 = [-sx, -sx * slope];
-  const up = h.dy < 0;
-  const lean = h.summit ? 0 : up ? 0.6 : -0.2; // penché en avant en montée, en arrière en descente
-  const bob = h.summit ? 0 : Math.abs(Math.cos(phase)) * 0.2; // le corps se soulève à chaque pas
+  const f1 = [sx, sx * h.slope];
+  const f2 = [-sx, -sx * h.slope];
+  const lean = h.lean;
+  const bob = Math.abs(Math.cos(phase)) * 0.2 * h.amp; // le corps se soulève à chaque pas
   const hip = [lean * 0.3, -1.8 - bob];
   const sh = [hip[0] + lean, hip[1] - 1.5];
   const head = [sh[0] + lean * 0.4, sh[1] - 1];
   // Genoux poussés vers l'avant (sens de la marche) : la jambe se plie, on lit une marche.
-  const knee = (f: number[]) => [(hip[0] + f[0]) / 2 + 0.35, (hip[1] + f[1]) / 2];
-  const hands: [number, number][] = h.summit
-    ? [[sh[0] - 1.15, sh[1] - 0.95], [sh[0] + 1.15, sh[1] - 0.95]] // bras levés en V, la tête reste dégagée
-    : [[sh[0] - swing * 0.85, sh[1] + 1.1], [sh[0] + swing * 0.85, sh[1] + 1.1]];
+  const knee = (f: number[]) => [(hip[0] + f[0]) / 2 + 0.35 * Math.max(h.amp, 0.3), (hip[1] + f[1]) / 2];
+  // Bras : balancier pendant la marche, levés en V au sommet (la tête reste dégagée), avec un
+  // passage continu de l'un à l'autre.
+  const hand = (side: -1 | 1): [number, number] => [
+    sh[0] + mix(side * swing * 0.85, side * 1.05, h.raise),
+    sh[1] + mix(1.1, -1.7, h.raise),
+  ];
+  const hands = [hand(-1), hand(1)];
   // Fondu au départ (pied gauche) et à l'arrivée (pied droit) : la boucle ne se voit pas.
-  const edge = Math.min(h.fade, WALK_MS - h.fade);
+  const edge = Math.min(h.loop, WALK_MS - h.loop);
   const opacity = Math.min(1, edge / 450);
   const p = (a: number[]) => `${a[0].toFixed(2)} ${a[1].toFixed(2)}`;
   return (
