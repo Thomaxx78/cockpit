@@ -29,3 +29,19 @@ html[data-puppet] .logo-hiker[data-lead] { opacity: 0; }
   30% { transform: translateY(2px) scale(.96); filter: brightness(.94); }
   100% { transform: none; }
 }
+
+/* Aide du mode jeu : bien visible au début, puis discrète. */
+.puppet-help {
+  position: fixed; left: 50%; bottom: 18px; z-index: 94; translate: -50% 0; pointer-events: none;
+  padding: 8px 14px; border-radius: 12px; background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--line); box-shadow: var(--shadow-lg); font-size: var(--fs-xs); color: var(--muted); white-space: nowrap;
+  animation: puppet-help-in .3s var(--ease-out, ease-out) backwards, puppet-help-dim .6s ease 6s forwards;
+}
+.puppet-help kbd { margin: 0 1px; }
+@keyframes puppet-help-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes puppet-help-dim { to { opacity: .35; } }
+@media (max-width: 700px) { .puppet-help { display: none; } }
+
+/* Le logo de la barre latérale se clique pour jouer. */
+.brandmark.playable { cursor: pointer; border-radius: 10px; }
+.brandmark.playable:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }

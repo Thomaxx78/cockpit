@@ -7,7 +7,7 @@ import { NewMenu, useCreate } from './components/NewMenu';
 import { MoreMenu } from './components/MoreMenu';
 import { Logo } from './components/Logo';
 import { Palette } from './components/Palette';
-import { Puppet } from './components/Puppet';
+import { Puppet, togglePlay } from './components/Puppet';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
 import { useTheme } from './lib/theme';
@@ -135,7 +135,11 @@ export function App({ email }: { email: string | null }) {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brandmark"><Logo size={50} /></div>
+          {/* Clic sur le logo : on pilote le randonneur au clavier (Puppet.tsx). */}
+          <div
+            className="brandmark playable" role="button" tabIndex={0} title="Clique pour piloter le randonneur (flèches, Espace, Entrée)"
+            onClick={togglePlay} onKeyDown={e => { if (e.key === 'Enter' && !e.repeat) { e.preventDefault(); togglePlay(); } }}
+          ><Logo size={50} /></div>
           <span className="brandname">Cockpit</span>
         </div>
         <nav ref={sideNav} className="side-nav">

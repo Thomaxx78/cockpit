@@ -43,6 +43,7 @@ L'import fusionne les données : il met à jour les éléments existants et ajou
 - Saisie rapide dans `Ctrl K` : taper une phrase comme « Relancer Paul vendredi P1 #achats @Marie » puis `Entrée` crée l'action avec sa date, sa priorité, son sujet et son responsable (`Maj+Entrée` ouvre la fiche pour la compléter). Dates comprises : aujourd'hui, demain, après-demain, lundi…dimanche, dans 3 jours / 2 semaines / 1 mois, semaine prochaine, fin du mois, 12/11, le 12, 3 décembre.
 - `N` / `E` / `S` : nouvelle action / nouvel événement / nouveau sujet
 - `Échap` : fermer une fenêtre
+- Clic sur le logo : le randonneur en sort et se pilote au clavier. `←` `→` pour courir, `↑` ou `Espace` pour sauter (sans limite, même en l'air), `↓` pour traverser l'élément, `Entrée` pour qu'il saute sur l'élément et le clique, `Échap` pour qu'il rentre. Chaque élément de la page lui sert de plateforme ; il se cogne contre les boutons et les champs.
 
 ## Assistant IA
 

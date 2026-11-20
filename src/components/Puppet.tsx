@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../lib/store';
 import { prefersReducedMotion } from '../lib/motion';
 import type { Task } from '../lib/types';
@@ -331,6 +331,152 @@ async function perform(A: Actor, task: Task, editTask: (t: Task | null, d?: Part
   return true;
 }
 
+/* ---------- Mode jeu ----------
+   Clic sur le logo : le randonneur de tête en sort et se pilote au clavier, comme un petit jeu de
+   plateforme posé sur l'interface. Chaque élément de la page est une plateforme (on atterrit sur
+   son bord supérieur), les boutons et les champs sont des murs (il s'y cogne).
+   ← → : courir · ↑ ou Espace : sauter (autant de fois qu'on veut, même en l'air, avec un salto)
+   ↓ : descendre à travers l'élément · Entrée : il saute et retombe sur l'élément = clic
+   Échap (ou nouveau clic sur le logo) : il rentre dans le logo. */
+
+export const PLAY_EVENT = 'cockpit-puppet-play';
+/** Fait sortir le randonneur pour le piloter, ou le fait rentrer. */
+export const togglePlay = () => dispatchEvent(new Event(PLAY_EVENT));
+
+type Controls = { held: Set<string>; queue: string[]; stop: boolean };
+
+const INTERACTIVE = 'button, a[href], input, select, textarea, summary, label, [role="button"], [role="tab"], [role="checkbox"], [tabindex]:not([tabindex="-1"])';
+const WALL = 'button, a[href], input, select, textarea, .btn';
+const GRAVITY = 2300; // px/s²
+const JUMP_V = 760; // px/s (≈ 125 px de haut)
+const RUN = 280; // px/s
+const MAX_FALL = 1150;
+const HALF = 0.6 * UNIT; // demi-largeur du bonhomme
+
+/** Bord supérieur d'élément franchi en tombant de y0 à y1 (le plus haut), à l'abscisse x. */
+function platformAt(x: number, y0: number, y1: number, below: number | null) {
+  let best: Element | null = null, top = Infinity;
+  for (const el of document.elementsFromPoint(x, y1)) {
+    if (el === document.documentElement || el === document.body || el.closest('.puppet')) continue;
+    if (el instanceof SVGElement && !(el instanceof SVGSVGElement)) continue; // icônes : le <svg> suffit
+    const r = el.getBoundingClientRect();
+    if (r.height > innerHeight * 0.85 || r.width < 6) continue; // pas les grands conteneurs de page
+    if (below !== null && r.top < below - 1) continue; // ↓ : on traverse l'élément quitté et tout son contenu
+    if (r.top >= y0 - 1 && r.top <= y1 && r.top < top) { best = el; top = r.top; }
+  }
+  return best ? { el: best, top } : null;
+}
+
+/** Mur rencontré en allant de x0 à x1 (pieds à y, hauteur h) : bouton, lien ou champ dont le haut dépasse. */
+function wallAt(x0: number, x1: number, y: number, h: number) {
+  const dir = Math.sign(x1 - x0);
+  if (!dir) return null;
+  for (const py of [y - h * 0.3, y - h * 0.75]) {
+    for (const hit of document.elementsFromPoint(x1 + dir * HALF, py)) {
+      const w = hit.closest(WALL);
+      if (!w || w.closest('.puppet')) continue;
+      const r = w.getBoundingClientRect();
+      if (r.top > y - 3) continue; // il est dessus, pas contre
+      if (dir > 0 && x0 + HALF <= r.left + 1) return { x: r.left - HALF, el: w };
+      if (dir < 0 && x0 - HALF >= r.right - 1) return { x: r.right + HALF, el: w };
+    }
+  }
+  return null;
+}
+
+/** Clic sur ce qui est sous ses pieds : l'élément cliquable le plus proche. */
+function clickUnder(plat: Element | null, x: number, y: number) {
+  const below = document.elementsFromPoint(x, y + 3).filter(e => !e.closest('.puppet'));
+  const target = plat?.closest(INTERACTIVE) ?? below.map(e => e.closest(INTERACTIVE)).find(Boolean) ?? plat;
+  if (!(target instanceof HTMLElement)) return;
+  flash(target, 'puppet-press', 260);
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+    target.focus();
+    try { (target as HTMLInputElement).showPicker?.(); } catch { /* champ texte : pas de sélecteur */ }
+  } else target.click();
+}
+
+async function play(A: Actor, ctl: Controls) {
+  const { a, draw, pose } = A;
+  const H = BODY_H * UNIT;
+  let vx = 0, vy = 0, grounded = false, plat: Element | null = null;
+  let skip: number | null = null; // ↓ : bas de l'élément traversé
+  let spin = 0, spinV = 0, squash = 0, stomp = false, bonkAt = 0;
+  let last = performance.now();
+  while (!ctl.stop) {
+    const now = await new Promise<number>(r => requestAnimationFrame(r));
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+
+    for (const c of ctl.queue.splice(0)) {
+      if (c === 'jump') {
+        if (!grounded) { spin = 0; spinV = -a.pose.face * 360 / 0.42; } // saut en l'air : salto
+        vy = -JUMP_V; grounded = false; plat = null;
+      } else if (c === 'drop' && grounded && plat) {
+        skip = plat.getBoundingClientRect().bottom; grounded = false; plat = null; vy = 80;
+      } else if (c === 'stomp') {
+        stomp = true;
+        if (grounded) { skip = null; vy = -340; grounded = false; }
+      }
+    }
+
+    // Course : accélération douce, moins de contrôle en l'air.
+    const dir = (ctl.held.has('ArrowRight') ? 1 : 0) - (ctl.held.has('ArrowLeft') ? 1 : 0);
+    vx += (dir * RUN - vx) * Math.min(1, dt * (grounded ? 14 : 6));
+    let nx = clamp(a.x + vx * dt, HALF + 2, innerWidth - HALF - 2);
+    const wall = Math.abs(vx) > 1 ? wallAt(a.x, nx, a.y, H) : null;
+    if (wall) {
+      nx = wall.x;
+      if (Math.abs(vx) > RUN * 0.6 && now - bonkAt > 400) { // lancé : il se cogne et rebondit
+        bonkAt = now;
+        stars(wall.x + Math.sign(vx) * HALF * 2, a.y - H * 0.8);
+        flash(wall.el, 'puppet-bonk', 420);
+        vx = -Math.sign(vx) * 170;
+        if (grounded) { vy = -240; grounded = false; plat = null; }
+      } else vx = 0;
+    }
+    a.x = nx;
+
+    if (grounded) {
+      const r = plat?.isConnected ? plat.getBoundingClientRect() : null;
+      if (plat && (!r || r.height === 0 || a.x < r.left - 2 || a.x > r.right + 2)) { grounded = false; plat = null; vy = 0; }
+      else a.y = r ? r.top : innerHeight - 2; // suit l'élément s'il bouge (défilement)
+    }
+    if (!grounded) {
+      vy = Math.min(MAX_FALL, vy + GRAVITY * dt);
+      let ny = a.y + vy * dt;
+      if (skip !== null && ny > skip + 2) skip = null;
+      if (vy > 0) {
+        const p = platformAt(a.x, a.y, ny, skip);
+        if (p) { ny = p.top; grounded = true; plat = p.el; }
+        else if (ny >= innerHeight - 2) { ny = innerHeight - 2; grounded = true; plat = null; }
+      }
+      if (ny - H < 2) { ny = H + 2; vy = Math.max(vy, 0); } // haut de l'écran
+      a.y = ny;
+      if (grounded) {
+        vy = 0; spin = 0; spinV = 0; squash = 0.15;
+        if (stomp) { stomp = false; clickUnder(plat, a.x, a.y); }
+      }
+    }
+
+    // Pose.
+    if (spinV) { spin += spinV * dt; if (Math.abs(spin) >= 360) { spin = 0; spinV = 0; } }
+    squash = Math.max(0, squash - dt);
+    const sp = Math.min(1, Math.abs(vx) / RUN);
+    if (grounded) a.pose.run += Math.abs(vx) * dt / (UNIT * 0.6);
+    pose({
+      face: dir || a.pose.face,
+      amp: grounded ? sp : 0,
+      lean: grounded ? 0.3 * sp : 0,
+      tuck: grounded ? squash / 0.15 * 0.5 : vy < 0 ? 0.45 : 0.15,
+      flail: grounded ? 0 : vy > 550 ? 0.8 : 0.15,
+      squash: 1 - squash / 0.15 * 0.25,
+      rot: spinV ? spin : grounded ? 0 : (dir || a.pose.face) * clamp(sp * 8, 0, 8),
+    });
+    draw();
+  }
+}
+
 /** Bonhomme du logo à suivre : celui de tête, dans le logo visible (barre latérale ou du haut). */
 function homeSpot() {
   for (const g of document.querySelectorAll('.logo-hiker[data-lead]')) {
@@ -349,6 +495,79 @@ export function Puppet() {
   live.current = { db, editTask };
   const root = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
+  const [playing, setPlaying] = useState(false);
+  const ctl = useRef<Controls | null>(null);
+
+  // Mode jeu : le logo fait sortir (ou rentrer) le randonneur piloté au clavier.
+  useEffect(() => {
+    const KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Enter', 'Escape'];
+    const down = (e: KeyboardEvent) => {
+      const c = ctl.current;
+      if (!c || e.ctrlKey || e.metaKey || e.altKey || !KEYS.includes(e.key)) return;
+      // Dans un champ, le clavier sert à écrire ; Échap rend la main au bonhomme.
+      const t = document.activeElement as HTMLElement | null;
+      if (t && (/INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable)) {
+        if (e.key === 'Escape') { t.blur(); e.preventDefault(); e.stopPropagation(); }
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (document.querySelector('.backdrop:not(.leaving), .menu:not(.leaving)')) return; // ferme d'abord la fenêtre / le menu
+        c.stop = true;
+      } else if (!e.repeat) {
+        if (e.key === 'ArrowUp' || e.key === ' ') c.queue.push('jump');
+        else if (e.key === 'ArrowDown') c.queue.push('drop');
+        else if (e.key === 'Enter') c.queue.push('stomp');
+      }
+      c.held.add(e.key);
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const up = (e: KeyboardEvent) => ctl.current?.held.delete(e.key);
+    const lost = () => ctl.current?.held.clear();
+    const toggle = async () => {
+      if (ctl.current) { ctl.current.stop = true; return; }
+      if (busy.current || !root.current) return;
+      const start = homeSpot();
+      if (!start) return;
+      busy.current = true;
+      const c: Controls = { held: new Set(), queue: [], stop: false };
+      ctl.current = c;
+      setPlaying(true);
+      const html = document.documentElement;
+      try {
+        const A = makeActor(root.current);
+        [A.a.x, A.a.y] = start.pt;
+        A.a.s = start.s;
+        A.a.opacity = 1;
+        A.a.pose = { ...REST };
+        html.dataset.puppet = '';
+        root.current.hidden = false;
+        A.draw();
+        // Il bondit hors du logo en grandissant, puis la gravité prend le relais.
+        await hop(A, [start.pt[0] + 40, start.pt[1] - 10], { grow: UNIT, height: 40, ms: 420 });
+        await play(A, c);
+        const back = homeSpot();
+        if (back) await hop(A, back.pt, { grow: back.s, height: 80, ms: 800, spin: 360 });
+        await tween(160, k => { A.a.opacity = 1 - k; A.draw(); });
+      } finally {
+        if (root.current) root.current.hidden = true;
+        delete html.dataset.puppet;
+        ctl.current = null;
+        busy.current = false;
+        setPlaying(false);
+      }
+    };
+    addEventListener('keydown', down, true);
+    addEventListener('keyup', up, true);
+    addEventListener('blur', lost);
+    addEventListener(PLAY_EVENT, toggle);
+    return () => {
+      removeEventListener('keydown', down, true);
+      removeEventListener('keyup', up, true);
+      removeEventListener('blur', lost);
+      removeEventListener(PLAY_EVENT, toggle);
+    };
+  }, []);
 
   useEffect(() => {
     const on = async (e: Event) => {
@@ -383,7 +602,12 @@ export function Puppet() {
     return () => removeEventListener(PUPPET_EVENT, on);
   }, []);
 
-  return (
+  return (<>
+    {playing && (
+      <div className="puppet-help" role="status">
+        <kbd>←</kbd><kbd>→</kbd> courir · <kbd>↑</kbd> / <kbd>Espace</kbd> sauter · <kbd>↓</kbd> descendre · <kbd>Entrée</kbd> cliquer · <kbd>Échap</kbd> rentrer
+      </div>
+    )}
     <div ref={root} className="puppet" hidden aria-hidden="true">
       <svg viewBox="-5 -8 10 10" overflow="visible">
         <g fill="none" stroke="var(--logo-hiker)" strokeWidth=".6" strokeLinecap="round" strokeLinejoin="round">
@@ -392,5 +616,5 @@ export function Puppet() {
         </g>
       </svg>
     </div>
-  );
+  </>);
 }
