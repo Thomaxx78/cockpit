@@ -25,11 +25,24 @@
     <title>Cockpit</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='23' cy='9' r='3.4' fill='%23ffc94d'/><path d='M3 25 L12.5 9.5 L18 18.5 L21 14 L29 25 Z' fill='%235048e5'/></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700&text=Cockpit&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Bricolage Grotesque : nom « Cockpit » et titres (police variable, graisses 300 à 800) -->
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      /* Écran de démarrage, affiché avant le chargement du JavaScript ; repris tel quel par
+         <Splash /> (src/components/Logo.tsx) pour un passage invisible. Fond = --bg du thème. */
+      html { background: #e6e9ee; }
+      :root[data-theme="dark"] { background: #070b16; }
+      @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { background: #070b16; } }
+      .boot { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; color: #5048e5; }
+      .boot svg { animation: boot-breathe 1.4s ease-in-out infinite alternate; }
+      @keyframes boot-breathe { from { opacity: .6; transform: scale(.96); } }
+      @media (prefers-reduced-motion: reduce) { .boot svg { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot" aria-hidden="true"><svg width="72" height="72" viewBox="0 0 32 32"><path d="M3 25 L12.5 9.5 L18 18.5 L21 14 L29 25 Z" fill="currentColor"/><path d="M12.5 9.5 L18 18.5 L16.4 25 L13.8 25 Z" fill="#000" opacity=".16"/></svg></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

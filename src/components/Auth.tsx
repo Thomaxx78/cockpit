@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js';
 import { Delete } from 'lucide-react';
 import { supabase } from '../lib/backend';
-import { Logo } from './Logo';
+import { Logo, Splash } from './Logo';
+import { transition } from '../lib/motion';
 
 /**
  * Le code n'est stocké nulle part dans le front : c'est le mot de passe d'un compte Supabase unique
@@ -16,13 +17,22 @@ export function AuthGate({ children }: { children: (email: string | null) => Rea
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    // Fondu seulement quand l'écran change (chargement → verrou → appli), pas à chaque
+    // rafraîchissement du jeton, qui garde la même session affichée.
+    let shown: 'loading' | 'lock' | 'app' = 'loading';
+    const apply = (s: Session | null) => {
+      const next = s ? 'app' : 'lock';
+      if (next === shown) { setSession(s); return; }
+      shown = next;
+      transition(() => setSession(s), 'auth');
+    };
+    supabase.auth.getSession().then(({ data }) => apply(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_e, s) => apply(s));
     return () => data.subscription.unsubscribe();
   }, []);
 
   if (!supabase) return <>{children(null)}</>;
-  if (session === undefined) return <div className="splash"><div className="spinner" /></div>;
+  if (session === undefined) return <Splash />;
   if (!session) return <PinLock />;
   return <>{children(session.user.email ?? null)}</>;
 }

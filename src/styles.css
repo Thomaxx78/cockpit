@@ -78,6 +78,9 @@
   /* Barres de défilement (valeurs sombres dans les blocs de thème sombre) */
   --scroll-thumb: #d3d7de; --scroll-thumb-hover: #a9b0bc;
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1); /* arrivées : départ vif, fin très douce */
+  --font-display: 'Bricolage Grotesque', Inter, ui-sans-serif, system-ui, sans-serif; /* nom et titres, assortis au logo */
+  --sun: #ffc94d; /* soleil du logo : accent chaud, en touches */
   color-scheme: light;
 }
 
@@ -260,13 +263,17 @@ textarea { resize: vertical; }
   color: var(--brand-fill); /* logo sans fond : la montagne prend le violet du logo */
 }
 .brandmark.big { margin: 0 auto 6px; }
-.brandname { color: var(--side-ink-strong); font: 700 23px/1 'Bricolage Grotesque', Inter, sans-serif; letter-spacing: -.6px; } /* police chargée seulement pour ce mot (index.html) */
+.brandname { color: var(--side-ink-strong); font: 700 23px/1 var(--font-display); letter-spacing: -.6px; }
 .nav {
   display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: var(--r-md);
   font-weight: 500; transition: background .15s, color .15s;
 }
 .nav:hover { background: var(--side-hover); color: var(--side-ink-strong); }
-.nav.active { background: var(--side-active); color: var(--side-active-ink); box-shadow: var(--side-active-shadow); font-weight: var(--side-active-weight); }
+.nav { position: relative; isolation: isolate; }
+.nav.active { color: var(--side-active-ink); font-weight: var(--side-active-weight); }
+.nav.active:hover { background: none; }
+/* Fond de l'élément actif : élément à part pour pouvoir glisser d'un lien à l'autre (section Mouvement) */
+.nav-pill { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--side-active); box-shadow: var(--side-active-shadow); view-transition-name: nav-pill; }
 .nav.active svg { color: var(--side-active-icon); }
 .side-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 12px 8px 4px; border-top: 1px solid var(--side-line); font-size: var(--fs-xs); color: var(--side-foot-ink); }
 .side-user { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -297,12 +304,13 @@ textarea { resize: vertical; }
 .sync.err { color: var(--red); background: var(--red-soft); }
 .sync.local { color: var(--amber); background: var(--amber-soft); }
 
-.main { padding: 32px 40px 64px; max-width: 1480px; width: 100%; margin: 0 auto; animation: page-in .28s var(--ease); }
+.main { padding: 32px 40px 64px; max-width: 1480px; width: 100%; margin: 0 auto; view-transition-name: page; }
+.main.enter { animation: page-in .5s var(--ease) .18s backwards; } /* arrivée (voir <Main> dans App) */
 @keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
 .page { display: flex; flex-direction: column; gap: 20px; }
 .content > .page { padding: 18px 40px 0; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
-.page-head h2 { margin: 0; font-size: var(--fs-2xl); letter-spacing: -.6px; font-weight: 700; }
+.page-head h2 { margin: 0; font: 700 var(--fs-2xl)/1.2 var(--font-display); letter-spacing: -.5px; }
 .month-title { text-transform: capitalize; }
 .hint { color: var(--muted); font-size: var(--fs-sm); margin: 4px 0 0; }
 .foot-hint { margin: 0; }
@@ -355,7 +363,7 @@ textarea { resize: vertical; }
 /* ---------- Panels & stats ---------- */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 24px; }
 .panel.flush { padding: 6px 8px; }
-.panel h3 { margin: 0 0 12px; font-size: var(--fs-lg); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.panel h3 { margin: 0 0 12px; font-size: var(--fs-lg); font-weight: 700; font-family: var(--font-display); letter-spacing: -.2px; display: flex; align-items: center; gap: 8px; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .panel-head h3 { margin: 0; }
 .grid-2 { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-items: start; }
@@ -555,7 +563,7 @@ textarea { resize: vertical; }
 }
 @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.98); } }
 .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 22px 6px; }
-.modal-head h2 { margin: 0; font-size: var(--fs-xl); letter-spacing: -.3px; }
+.modal-head h2 { margin: 0; font: 700 var(--fs-xl)/1.25 var(--font-display); letter-spacing: -.3px; }
 .modal-body { padding: 10px 22px 18px; overflow-y: auto; }
 .modal-foot { display: flex; align-items: center; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--line); background: var(--modal-foot-bg); flex-wrap: wrap; }
 .form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -641,7 +649,7 @@ textarea { resize: vertical; }
 }
 .lock-clock { text-align: center; animation: page-in .5s var(--ease); }
 /* Écran de verrouillage : tailles d'affichage hors échelle, volontaires (horloge, pavé) */
-.lock-time { font-size: clamp(56px, 12vw, 84px); font-weight: 400; letter-spacing: -2px; line-height: 1; font-variant-numeric: tabular-nums; }
+.lock-time { font-family: var(--font-display); font-size: clamp(60px, 13vw, 92px); font-weight: 300; letter-spacing: -2.5px; line-height: 1; font-variant-numeric: tabular-nums; }
 .lock-date { font-size: var(--fs-lg); opacity: .75; margin-top: 8px; text-transform: capitalize; }
 .lock-center { display: flex; flex-direction: column; align-items: center; gap: 16px; animation: rise .5s var(--ease); }
 .lock-icon { --logo-moon: #eef0ff; display: grid; place-items: center; color: #fff; filter: drop-shadow(0 4px 14px rgb(0 0 0 / .25)); }
@@ -980,7 +988,8 @@ textarea { resize: vertical; }
   .tabbar { height: calc(64px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
   .tabbar a { gap: 2px; font-size: var(--fs-2xs); min-width: 0; }
   .tab-ico { display: grid; place-items: center; width: 52px; height: 30px; border-radius: 15px; transition: background .2s var(--ease), color .2s; }
-  .tabbar a.active .tab-ico { background: var(--brand-soft); }
+  .tab-ico { position: relative; isolation: isolate; }
+  .tab-pill { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--brand-soft); view-transition-name: tab-pill; }
   .tabbar a:active .tab-ico { background: var(--sunken); }
 
   /* Assistant IA */
@@ -1177,3 +1186,89 @@ button.daynum:hover { background: var(--sunken); }
 .cal-tray-empty { color: var(--muted); font-size: var(--fs-xs); padding: 4px 2px; }
 .evt.task[draggable='true'] { cursor: grab; }
 .day.drop-over { background: var(--brand-soft) !important; box-shadow: inset 0 0 0 2px var(--brand); }
+
+/* ============================================================
+   Mouvement et ambiance (assortis au logo : montagnes, soleil, ciel)
+   ============================================================ */
+
+/* ---------- Ciel de la barre latérale ----------
+   Lueur en haut, selon l'heure réelle (data-sky posé par useSkyPhase), et crête de
+   montagnes en filigrane en bas. Les deux restent derrière le contenu (isolation). */
+.sidebar { isolation: isolate; overflow: hidden; }
+.sidebar::before, .sidebar::after { content: ''; position: absolute; left: 0; right: 0; z-index: -1; pointer-events: none; }
+.sidebar::before {
+  top: 0; height: 260px;
+  background: radial-gradient(120% 100% at 30% 0%, var(--sky-glow, transparent), transparent 70%);
+  transition: opacity 1s;
+}
+:root[data-sky="dawn"]  { --sky-glow: color-mix(in srgb, #ff9f6b 26%, transparent); }
+:root[data-sky="day"]   { --sky-glow: color-mix(in srgb, var(--sun) 22%, transparent); }
+:root[data-sky="dusk"]  { --sky-glow: color-mix(in srgb, #f2738c 24%, transparent); }
+:root[data-sky="night"] { --sky-glow: color-mix(in srgb, var(--brand-fill) 22%, transparent); }
+.sidebar::after {
+  bottom: 0; height: 150px;
+  background: linear-gradient(to top, color-mix(in srgb, var(--brand-fill) 16%, transparent), color-mix(in srgb, var(--brand-fill) 7%, transparent));
+  /* deux crêtes : celle du fond à moitié transparente */
+  --ridge: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 252 150' preserveAspectRatio='none'%3E%3Cpath d='M0 150V88l38-24 30 16 46-42 40 32 34-18 64 34v64z' opacity='.5'/%3E%3Cpath d='M0 150v-34l32-12 36 16 40-26 42 28 38-18 36 14 28-8v40z'/%3E%3C/svg%3E");
+  -webkit-mask: var(--ridge) bottom / 100% 100% no-repeat; mask: var(--ridge) bottom / 100% 100% no-repeat;
+}
+@media (max-width: 1100px) { .sidebar::after { display: none; } }
+/* Sombre : lueur plus discrète (un jaune soutenu vire au brun sur fond nuit). */
+:root[data-theme="dark"] .sidebar::before { opacity: .5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sidebar::before { opacity: .5; } }
+
+/* ---------- Arrivée sur l'onglet ----------
+   Écran de démarrage (index.html, puis <Splash />) → l'interface se pose en cascade :
+   barre latérale, logo qui se lève, nom, liens un à un, barre du haut, puis la page.
+   `backwards` : l'état de départ ne s'applique que pendant le délai, rien ne reste après
+   (une transformation résiduelle casserait les éléments en position fixe). */
+.sidebar { animation: side-in .55s var(--ease-out) backwards; }
+.sidebar .brandmark { animation: logo-rise .8s var(--ease-out) .08s backwards; }
+.sidebar .brandname { animation: slide-in .6s var(--ease-out) .22s backwards; }
+.sidebar .nav { animation: slide-in .5s var(--ease-out) backwards; animation-delay: calc(.3s + var(--i, 0) * .06s); }
+.sidebar .side-foot { animation: fade .6s ease .5s backwards; }
+.topbar { animation: top-in .5s var(--ease-out) .12s backwards; }
+.tabbar { animation: tab-in .5s var(--ease-out) .2s backwards; }
+@keyframes side-in { from { opacity: 0; transform: translateX(-14px); } }
+@keyframes logo-rise { from { opacity: 0; transform: translateY(10px) scale(.92); } }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-8px); } }
+@keyframes top-in { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes tab-in { from { transform: translateY(100%); } }
+@keyframes page-in { from { opacity: 0; transform: translateY(12px); } }
+
+
+/* ---------- Transitions entre pages (View Transitions, src/lib/motion.ts) ----------
+   Page : l'ancienne s'efface vers le haut, la nouvelle monte en douceur ; le reste de
+   l'écran ne bouge pas, sauf le fond du lien actif qui glisse jusqu'au nouveau lien. */
+:root[data-vt="page"]::view-transition-old(root),
+:root[data-vt="page"]::view-transition-new(root) { animation: none; }
+::view-transition-old(page) { animation: vt-page-out .16s ease-in both; }
+::view-transition-new(page) { animation: vt-page-in .38s var(--ease-out) .05s both; }
+::view-transition-group(nav-pill),
+::view-transition-group(tab-pill) { animation-duration: .38s; animation-timing-function: var(--ease-out); }
+::view-transition-group(page) { animation-duration: .38s; }
+/* Éléments fixes : photographiés à part pour rester au-dessus de la page pendant la transition. */
+.topbar { view-transition-name: topbar; }
+.tabbar { view-transition-name: tabbar; }
+.ai-fab { view-transition-name: ai-fab; }
+@keyframes vt-page-out { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vt-page-in { from { opacity: 0; transform: translateY(14px); } }
+/* Verrou ↔ appli et changement de thème : fondu enchaîné de tout l'écran. */
+:root[data-vt="auth"]::view-transition-old(root) { animation: vt-fade-out .35s ease both; }
+:root[data-vt="auth"]::view-transition-new(root) { animation: fade .45s ease both; }
+:root[data-vt="theme"]::view-transition-old(root),
+:root[data-vt="theme"]::view-transition-new(root) { animation-duration: .4s; }
+@keyframes vt-fade-out { to { opacity: 0; transform: scale(1.02); } }
+
+/* ---------- Petites réactions ---------- */
+.btn.primary { transition: background .15s, transform .18s var(--ease-out), box-shadow .2s; }
+.btn.primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--brand-fill) 55%, transparent); }
+.btn.primary:active { transform: translateY(0) scale(.97); box-shadow: none; }
+.nav svg { transition: transform .25s var(--ease-out); }
+.nav:hover svg { transform: translateX(2px); }
+.ai-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -6px color-mix(in srgb, var(--brand-fill) 60%, transparent); }
+.lock-icon { animation: logo-rise .9s var(--ease-out) backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { transition } from './motion';
 
 export const iso = (d: Date) =>
   [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
@@ -50,6 +51,9 @@ export function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(u), 1000);
 }
 
+/** Première partie de l'adresse affichée (pour savoir si on change de page). */
+let routeHead = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split(/[/?]/)[0];
+
 /** Routage par hash : #/ (calendrier), #/kanban, #/historique, #/sujets/moon */
 export function useRoute() {
   const get = () => {
@@ -58,7 +62,15 @@ export function useRoute() {
   };
   const [route, setRoute] = useState(get);
   useEffect(() => {
-    const on = () => { setRoute(get()); window.scrollTo({ top: 0 }); };
+    const on = () => {
+      const next = get();
+      const update = () => { setRoute(next); window.scrollTo({ top: 0 }); };
+      // D'une note à l'autre, l'arborescence reste en place : pas d'animation de page.
+      const prev = routeHead;
+      routeHead = next.parts[0] ?? '';
+      if (prev === 'notes' && routeHead === 'notes') update();
+      else transition(update, 'page');
+    };
     addEventListener('hashchange', on);
     return () => removeEventListener('hashchange', on);
   }, []);

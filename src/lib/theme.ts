@@ -1,3 +1,4 @@
+import { transition } from './motion';
 import { useCallback, useEffect, useState } from 'react';
 
 /**
@@ -60,8 +61,12 @@ export function setTheme(t: Theme) {
     if (t === 'system') localStorage.removeItem(THEME_KEY);
     else localStorage.setItem(THEME_KEY, t);
   } catch { /* stockage indisponible : le choix vaut pour cette session */ }
-  applyTheme(t);
-  dispatchEvent(new CustomEvent<Theme>(EVENT, { detail: t }));
+  // Fondu entre les deux thèmes. L'évènement part dans la même mise à jour : sinon
+  // useTheme réappliquerait le thème avant la photo « avant » et le fondu ne se verrait pas.
+  transition(() => {
+    applyTheme(t);
+    dispatchEvent(new CustomEvent<Theme>(EVENT, { detail: t }));
+  }, 'theme');
 }
 
 /** Thème choisi + thème effectif ; se met à jour si le système change ou dans un autre onglet. */

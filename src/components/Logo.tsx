@@ -71,3 +71,9 @@ export function Logo({ size = 20 }: { size?: number }) {
     </svg>
   );
 }
+
+/** Écran d'attente plein écran : même place et même fond que l'écran de démarrage de index.html
+    (classe .boot), pour que le passage du HTML statique à l'appli ne se voie pas. */
+export function Splash() {
+  return <div className="boot" role="status" aria-label="Chargement"><Logo size={72} /></div>;
+}

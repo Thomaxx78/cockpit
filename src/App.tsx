@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   AlertCircle, CalendarDays, Check, Cloud, Columns3, Download, HardDrive, History as HistoryIcon, LogOut, NotebookPen, Search, Upload,
 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { Palette } from './components/Palette';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
 import { useTheme } from './lib/theme';
+import { inPageTransition, useSkyPhase } from './lib/motion';
 import { download, go, useRoute } from './lib/utils';
 import { Calendar } from './views/Calendar';
 import './styles/shell.css';
@@ -48,6 +49,14 @@ const NAV = [
 const PAGES: [string, string][] = [...NAV.map(([p, l]): [string, string] => [p, l]), ['historique', 'Historique']];
 const splash = <div className="splash"><div className="spinner" /></div>;
 
+/** Zone de page. Elle s'anime à son arrivée (ouverture de l'onglet, fin du chargement) ;
+    pendant une transition de page, c'est la View Transition qui anime : on n'ajoute rien,
+    sinon l'animation serait jouée deux fois. Décidé une fois au montage. */
+function Main({ children }: { children: ReactNode }) {
+  const [enter] = useState(() => !inPageTransition());
+  return <main className={`main${enter ? ' enter' : ''}`}>{children}</main>;
+}
+
 export function App({ email }: { email: string | null }) {
   const { parts } = useRoute();
   const store = useStore();
@@ -60,6 +69,7 @@ export function App({ email }: { email: string | null }) {
   const currentSubject = page === 'sujets' && parts[1] ? parts[1] : undefined;
   const create = useCreate(currentSubject);
   useTheme(); // garde data-theme et theme-color à jour (changement du système, autre onglet)
+  useSkyPhase(); // lueur de la barre latérale selon l'heure (aube, jour, crépuscule, nuit)
 
   useEffect(preloadAllWhenIdle, []);
 
@@ -123,11 +133,13 @@ export function App({ email }: { email: string | null }) {
           <span className="brandname">Cockpit</span>
         </div>
         <nav>
-          {NAV.map(([path, label, Icon]) => (
+          {NAV.map(([path, label, Icon], i) => (
             <a
               key={path} href={'#/' + path} className={`nav ${page === path ? 'active' : ''}`} title={label} aria-current={page === path ? 'page' : undefined}
-              onPointerEnter={() => preload(path)} onFocus={() => preload(path)}
+              onPointerEnter={() => preload(path)} onFocus={() => preload(path)} style={{ '--i': i } as CSSProperties}
             >
+              {/* fond de l'élément actif : un seul à la fois, il glisse d'un lien à l'autre (View Transition) */}
+              {page === path && <span className="nav-pill" aria-hidden="true" />}
               <Icon size={18} /><span>{label}</span>
             </a>
           ))}
@@ -173,7 +185,8 @@ export function App({ email }: { email: string | null }) {
         )}
 
         {/* Notes : pas de remontage à chaque note ouverte (l'arborescence reste en place). */}
-        <main key={page === 'notes' ? page : page + (parts[1] ?? '')} className="main"><Suspense fallback={splash}>{view}</Suspense></main>
+        {/* La clé inclut `ready` : la page s'anime quand les données arrivent, pas sur le chargement. */}
+        <Main key={(ready ? 'r:' : 'l:') + (page === 'notes' ? page : page + (parts[1] ?? ''))}><Suspense fallback={splash}>{view}</Suspense></Main>
       </div>
 
       <nav className="tabbar" aria-label="Navigation principale">
@@ -182,7 +195,7 @@ export function App({ email }: { email: string | null }) {
             key={path} href={'#/' + path} className={page === path ? 'active' : ''} aria-current={page === path ? 'page' : undefined}
             onPointerDown={() => preload(path)}
           >
-            <span className="tab-ico"><Icon size={21} /></span><span>{short}</span>
+            <span className="tab-ico">{page === path && <span className="tab-pill" aria-hidden="true" />}<Icon size={21} /></span><span>{short}</span>
           </a>
         ))}
       </nav>
