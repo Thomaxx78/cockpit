@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from 'react';
 
-/* Logo du Cockpit : deux sommets, un astre qui parcourt le ciel et un petit randonneur.
+/* Logo du Cockpit : deux sommets, un astre qui parcourt le ciel et une cordée de petits randonneurs.
    Jour (7h–20h) : le soleil se lève à gauche, culmine et se couche à droite derrière les sommets.
    Nuit : la lune fait le même trajet. Le temps est accéléré (une journée = CYCLE_MS, 40 s) et part
-   de l'heure réelle. Le randonneur gravit le grand sommet, lève les bras en haut, redescend au
-   col, passe le petit sommet et repart du pied gauche. Avec « réduire les animations », l'astre
+   de l'heure réelle. Les randonneurs gravissent l'un après l'autre le grand sommet, y font un salto arrière,
+   redescendent au col, passent le petit sommet et repartent du pied gauche. Avec « réduire les animations », l'astre
    reste à sa place réelle et le randonneur se tient au sommet, immobile. */
 const DAY_START = 7;
 const DAY_END = 20;
@@ -29,6 +29,10 @@ const realHour = () => { const d = new Date(); return d.getHours() + d.getMinute
    dépend de sa longueur et de la pente : on monte plus lentement qu'on ne descend. */
 const RIDGE: [number, number][] = [[3, 25], [12.5, 9.5], [18, 18.5], [21, 14], [29, 25]];
 const SUMMIT_PAUSE = 1500; // ms, salto arrière au sommet
+/* Cordée : plusieurs randonneurs à la suite, chacun décalé de ROPE_GAP. L'écart laisse au
+   précédent le temps de finir son salto et de quitter le sommet avant l'arrivée du suivant. */
+const ROPE = 3;
+const ROPE_GAP = 2000; // ms
 const HIKER_SCALE = 1.45; // taille du randonneur : lisible dès 36 px
 const SEGMENTS = RIDGE.slice(1).map(([bx, by], i) => {
   const [ax, ay] = RIDGE[i];
@@ -91,10 +95,13 @@ function hikerAt(ms: number) {
 }
 
 /** Petit bonhomme bâton : pieds posés sur la pente, buste penché dans la montée, bras et jambes alternés. */
-function Hiker({ ms, still }: { ms: number; still: boolean }) {
-  const h = still
+function Hiker({ ms, still, delay }: { ms: number; still: boolean; delay: number }) {
+  // Le suivant part quand son tour vient (pas de randonneur surgi au milieu de la pente).
+  if (!still && ms < delay) return null;
+  // Immobile : le premier au sommet, les autres en montée derrière lui.
+  const h = still && delay === 0
     ? { x: RIDGE[1][0], y: RIDGE[1][1], slope: 0, dist: 0, amp: 0, lean: 0, crouch: 0, lift: 0, spin: 0, loop: WALK_MS / 2 }
-    : hikerAt(ms);
+    : hikerAt(still ? SEGMENTS[0].ms - delay : ms - delay);
   const phase = h.dist * 1.7; // ≈ 2 pas par 3,7 unités de crête
   const swing = Math.sin(phase) * h.amp;
   // Dessin en coordonnées locales (pieds en 0,0), agrandi de HIKER_SCALE autour du point
@@ -183,7 +190,9 @@ export function Logo({ size = 20 }: { size?: number }) {
       {/* versant à l'ombre du grand sommet */}
       <path d="M12.5 9.5 L18 18.5 L16.4 25 L13.8 25 Z" fill="#000" opacity=".16" />
       {/* trop petit pour être lisible en dessous de 30 px : pas de randonneur */}
-      {size >= 30 && <Hiker ms={clock.ms} still={clock.still} />}
+      {size >= 30 && Array.from({ length: ROPE }, (_, i) => (
+        <Hiker key={i} ms={clock.ms} still={clock.still} delay={i * ROPE_GAP} />
+      ))}
     </svg>
   );
 }
