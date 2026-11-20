@@ -29,6 +29,7 @@ const realHour = () => { const d = new Date(); return d.getHours() + d.getMinute
    dépend de sa longueur et de la pente : on monte plus lentement qu'on ne descend. */
 const RIDGE: [number, number][] = [[3, 25], [12.5, 9.5], [18, 18.5], [21, 14], [29, 25]];
 const SUMMIT_PAUSE = 1300; // ms, bras levés au sommet
+const HIKER_SCALE = 1.45; // taille du randonneur : lisible dès 36 px
 const SEGMENTS = RIDGE.slice(1).map(([bx, by], i) => {
   const [ax, ay] = RIDGE[i];
   const len = Math.hypot(bx - ax, by - ay);
@@ -59,16 +60,17 @@ function Hiker({ ms, still }: { ms: number; still: boolean }) {
   const h = still ? { x: RIDGE[1][0], y: RIDGE[1][1], dx: 1, dy: 0, dist: 0, summit: true, fade: WALK_MS / 2 } : hikerAt(ms);
   const phase = h.dist * 1.7; // ≈ 2 pas par 3,7 unités de crête
   const swing = h.summit ? 0 : Math.sin(phase);
-  // Pas mesurés à l'horizontale (sinon, sur une pente raide, les jambes se confondent),
-  // pieds recollés à la pente : y suit la ligne de crête.
+  // Dessin en coordonnées locales (pieds en 0,0), agrandi de HIKER_SCALE autour du point
+  // de crête : agrandir autour de ce point garde les pieds sur la pente. Pas mesurés à
+  // l'horizontale (sur une pente raide, les jambes se confondraient), y suit la pente.
   const slope = h.dy / (h.dx || 1);
   const sx = swing * 0.85;
-  const f1 = [h.x + sx, h.y + sx * slope];
-  const f2 = [h.x - sx, h.y - sx * slope];
+  const f1 = [sx, sx * slope];
+  const f2 = [-sx, -sx * slope];
   const up = h.dy < 0;
   const lean = h.summit ? 0 : up ? 0.6 : -0.2; // penché en avant en montée, en arrière en descente
   const bob = h.summit ? 0 : Math.abs(Math.cos(phase)) * 0.2; // le corps se soulève à chaque pas
-  const hip = [h.x + lean * 0.3, h.y - 1.8 - bob];
+  const hip = [lean * 0.3, -1.8 - bob];
   const sh = [hip[0] + lean, hip[1] - 1.5];
   const head = [sh[0] + lean * 0.4, sh[1] - 1];
   // Genoux poussés vers l'avant (sens de la marche) : la jambe se plie, on lit une marche.
@@ -81,9 +83,10 @@ function Hiker({ ms, still }: { ms: number; still: boolean }) {
   const opacity = Math.min(1, edge / 450);
   const p = (a: number[]) => `${a[0].toFixed(2)} ${a[1].toFixed(2)}`;
   return (
-    <g className="logo-hiker" opacity={opacity.toFixed(2)} fill="none" stroke="var(--logo-hiker)" strokeWidth=".5" strokeLinecap="round" strokeLinejoin="round">
+    <g className="logo-hiker" opacity={opacity.toFixed(2)} transform={`translate(${p([h.x, h.y])}) scale(${HIKER_SCALE})`}
+      fill="none" stroke="var(--logo-hiker)" strokeWidth=".6" strokeLinecap="round" strokeLinejoin="round">
       <path d={`M${p(f1)} L${p(knee(f1))} L${p(hip)} L${p(knee(f2))} L${p(f2)} M${p(hip)} L${p(sh)} M${p(hands[0])} L${p(sh)} L${p(hands[1])}`} />
-      <circle cx={head[0].toFixed(2)} cy={head[1].toFixed(2)} r=".72" fill="var(--logo-hiker)" stroke="none" />
+      <circle cx={head[0].toFixed(2)} cy={head[1].toFixed(2)} r=".8" fill="var(--logo-hiker)" stroke="none" />
     </g>
   );
 }

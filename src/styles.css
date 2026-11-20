@@ -1,7 +1,7 @@
 :root {
   --bg: #e6e9ee;
   --logo-moon: #9aa0c8; /* lune du logo, visible sur fond clair */
-  --logo-hiker: #1d2233; /* randonneur du logo (trait sombre sur fond clair) */
+  --logo-hiker: #e8553a; /* randonneur du logo : corail (veste de rando), ressort sur le violet et sur le fond */
   --surface: #ffffff;
   --surface-2: #f8f9fb;
   --sunken: #e2e6ec;
@@ -97,7 +97,7 @@
 :root[data-theme="dark"] {
   --bg: #070b16;
   --logo-moon: #dfe3f5;
-  --logo-hiker: #e7ebf3;
+  --logo-hiker: #ff7a5c;
   --surface: #151d30;
   --surface-2: #1a2338;
   --sunken: #111829;
@@ -163,7 +163,7 @@
   :root:not([data-theme="light"]) {
     --bg: #070b16;
     --logo-moon: #dfe3f5;
-    --logo-hiker: #e7ebf3;
+    --logo-hiker: #ff7a5c;
     --surface: #151d30;
     --surface-2: #1a2338;
     --sunken: #111829;
@@ -658,7 +658,7 @@ textarea { resize: vertical; }
 .lock-time { font-family: var(--font-display); font-size: clamp(60px, 13vw, 92px); font-weight: 300; letter-spacing: -2.5px; line-height: 1; font-variant-numeric: tabular-nums; }
 .lock-date { font-size: var(--fs-lg); opacity: .75; margin-top: 8px; text-transform: capitalize; }
 .lock-center { display: flex; flex-direction: column; align-items: center; gap: 16px; animation: rise .5s var(--ease); }
-.lock-icon { --logo-moon: #eef0ff; --logo-hiker: #fff; display: grid; place-items: center; color: #fff; filter: drop-shadow(0 4px 14px rgb(0 0 0 / .25)); }
+.lock-icon { --logo-moon: #eef0ff; --logo-hiker: #ffb199; display: grid; place-items: center; color: #fff; filter: drop-shadow(0 4px 14px rgb(0 0 0 / .25)); }
 .lock-msg { font-size: var(--fs-md); font-weight: 500; opacity: .9; min-height: 22px; transition: color .2s; text-align: center; }
 .lock-msg.is-error { color: #ff9aa2; }
 .pin-dots { display: flex; gap: 18px; margin: 4px 0 18px; }
