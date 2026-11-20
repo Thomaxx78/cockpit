@@ -32,7 +32,7 @@ const SUMMIT_PAUSE = 1500; // ms, salto arrière au sommet
 /* Cordée : plusieurs randonneurs à la suite, chacun décalé de ROPE_GAP. L'écart laisse au
    précédent le temps de finir son salto et de quitter le sommet avant l'arrivée du suivant. */
 const ROPE = 3;
-const ROPE_GAP = 2800; // ms
+const ROPE_GAP = 4200; // ms
 const ROPE_COLORS = ['var(--logo-hiker)', 'var(--logo-hiker-2)', 'var(--logo-hiker-3)'];
 const HIKER_SCALE = 1.45; // taille du randonneur : lisible dès 36 px
 const SEGMENTS = RIDGE.slice(1).map(([bx, by], i) => {
@@ -60,7 +60,7 @@ const segLean = (i: number) => (SEGMENTS[i].dy < 0 ? LEAN_UP : LEAN_DOWN);
  * - au sommet, `crouch` (accroupi / groupé), `lift` (hauteur) et `spin` (rotation) enchaînent le salto.
  */
 function hikerAt(ms: number) {
-  const loop = ms % WALK_MS;
+  const loop = ((ms % WALK_MS) + WALK_MS) % WALK_MS; // ms négatif possible (cordée immobile)
   let t = loop, dist = 0;
   for (let i = 0; i < SEGMENTS.length; i++) {
     const g = SEGMENTS[i];
