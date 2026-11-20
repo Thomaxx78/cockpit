@@ -40,6 +40,7 @@ L'import fusionne les données : il met à jour les éléments existants et ajou
 ## Raccourcis
 
 - `Ctrl K` : recherche globale (sujets, actions, pages)
+- Saisie rapide dans `Ctrl K` : taper une phrase comme « Relancer Paul vendredi P1 #achats @Marie » puis `Entrée` crée l'action avec sa date, sa priorité, son sujet et son responsable (`Maj+Entrée` ouvre la fiche pour la compléter). Dates comprises : aujourd'hui, demain, après-demain, lundi…dimanche, dans 3 jours / 2 semaines / 1 mois, semaine prochaine, fin du mois, 12/11, le 12, 3 décembre.
 - `N` / `E` / `S` : nouvelle action / nouvel événement / nouveau sujet
 - `Échap` : fermer une fenêtre
 

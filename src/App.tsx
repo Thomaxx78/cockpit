@@ -162,8 +162,8 @@ export function App({ email }: { email: string | null }) {
             <span className="brandmark small"><Logo size={36} /></span>
             <span>{currentSubject ? 'Sujet' : PAGES.find(([p]) => p === page)?.[1] ?? 'Cockpit'}</span>
           </div>
-          <button className="searchbar" onClick={() => setPalette(true)} aria-label="Rechercher (Ctrl K)">
-            <Search size={16} /> <span>Rechercher…</span> <kbd>Ctrl K</kbd>
+          <button className="searchbar" onClick={() => setPalette(true)} aria-label="Rechercher ou créer une action (Ctrl K)">
+            <Search size={16} /> <span>Rechercher ou créer…</span> <kbd>Ctrl K</kbd>
           </button>
           <div className="top-actions">
             <span className="desktop-only">{syncCompact}</span>
