@@ -32,7 +32,8 @@ const SUMMIT_PAUSE = 1500; // ms, salto arrière au sommet
 /* Cordée : plusieurs randonneurs à la suite, chacun décalé de ROPE_GAP. L'écart laisse au
    précédent le temps de finir son salto et de quitter le sommet avant l'arrivée du suivant. */
 const ROPE = 3;
-const ROPE_GAP = 2000; // ms
+const ROPE_GAP = 2800; // ms
+const ROPE_COLORS = ['var(--logo-hiker)', 'var(--logo-hiker-2)', 'var(--logo-hiker-3)'];
 const HIKER_SCALE = 1.45; // taille du randonneur : lisible dès 36 px
 const SEGMENTS = RIDGE.slice(1).map(([bx, by], i) => {
   const [ax, ay] = RIDGE[i];
@@ -95,7 +96,7 @@ function hikerAt(ms: number) {
 }
 
 /** Petit bonhomme bâton : pieds posés sur la pente, buste penché dans la montée, bras et jambes alternés. */
-function Hiker({ ms, still, delay }: { ms: number; still: boolean; delay: number }) {
+function Hiker({ ms, still, delay, color }: { ms: number; still: boolean; delay: number; color: string }) {
   // Le suivant part quand son tour vient (pas de randonneur surgi au milieu de la pente).
   if (!still && ms < delay) return null;
   // Immobile : le premier au sommet, les autres en montée derrière lui.
@@ -130,9 +131,9 @@ function Hiker({ ms, still, delay }: { ms: number; still: boolean; delay: number
   const p = (a: number[]) => `${a[0].toFixed(2)} ${a[1].toFixed(2)}`;
   return (
     <g className="logo-hiker" opacity={opacity.toFixed(2)} transform={`translate(${p([h.x, h.y])}) scale(${HIKER_SCALE}) translate(0 ${(-h.lift).toFixed(2)}) rotate(${h.spin.toFixed(1)} 0 -2.4)`}
-      fill="none" stroke="var(--logo-hiker)" strokeWidth=".6" strokeLinecap="round" strokeLinejoin="round">
+      fill="none" stroke={color} strokeWidth=".6" strokeLinecap="round" strokeLinejoin="round">
       <path d={`M${p(f1)} L${p(knee(f1))} L${p(hip)} L${p(knee(f2))} L${p(f2)} M${p(hip)} L${p(sh)} M${p(hands[0])} L${p(sh)} L${p(hands[1])}`} />
-      <circle cx={head[0].toFixed(2)} cy={head[1].toFixed(2)} r=".8" fill="var(--logo-hiker)" stroke="none" />
+      <circle cx={head[0].toFixed(2)} cy={head[1].toFixed(2)} r=".8" fill={color} stroke="none" />
     </g>
   );
 }
@@ -191,7 +192,7 @@ export function Logo({ size = 20 }: { size?: number }) {
       <path d="M12.5 9.5 L18 18.5 L16.4 25 L13.8 25 Z" fill="#000" opacity=".16" />
       {/* trop petit pour être lisible en dessous de 30 px : pas de randonneur */}
       {size >= 30 && Array.from({ length: ROPE }, (_, i) => (
-        <Hiker key={i} ms={clock.ms} still={clock.still} delay={i * ROPE_GAP} />
+        <Hiker key={i} ms={clock.ms} still={clock.still} delay={i * ROPE_GAP} color={ROPE_COLORS[i % ROPE_COLORS.length]} />
       ))}
     </svg>
   );
