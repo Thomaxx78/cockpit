@@ -1,13 +1,15 @@
 import { useEffect, useId, useState } from 'react';
 
-/* Logo du Cockpit : deux sommets et un astre qui parcourt le ciel.
+/* Logo du Cockpit : deux sommets, un astre qui parcourt le ciel et un petit randonneur.
    Jour (7h–20h) : le soleil se lève à gauche, culmine et se couche à droite derrière les sommets.
    Nuit : la lune fait le même trajet. Le temps est accéléré (une journée = CYCLE_MS, 40 s) et part
-   de l'heure réelle ; avec « réduire les animations », l'astre reste à sa place réelle. */
+   de l'heure réelle. Le randonneur gravit le grand sommet, lève les bras en haut, redescend au
+   col, passe le petit sommet et repart du pied gauche. Avec « réduire les animations », l'astre
+   reste à sa place réelle et le randonneur se tient au sommet, immobile. */
 const DAY_START = 7;
 const DAY_END = 20;
 const CYCLE_MS = 40_000;
-const FRAME_MS = 50; // ~20 images/s : fluide sur une si petite icône, sans charger le processeur
+const FRAME_MS = 33; // ~30 images/s : assez pour une marche fluide, sans charger le processeur
 
 /** Position sur l'arc (viewBox 32×32) et nature de l'astre pour une heure (0–24). */
 function skyAt(h: number) {
@@ -22,33 +24,103 @@ function skyAt(h: number) {
 
 const realHour = () => { const d = new Date(); return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; };
 
-/** Heure « du logo » : réelle au départ, puis accélérée. */
-function useSkyHour() {
-  const [hour, setHour] = useState(realHour);
+/* ---------- Randonneur ----------
+   Trajet sur la crête (mêmes points que le dessin des montagnes). La durée de chaque tronçon
+   dépend de sa longueur et de la pente : on monte plus lentement qu'on ne descend. */
+const RIDGE: [number, number][] = [[3, 25], [12.5, 9.5], [18, 18.5], [21, 14], [29, 25]];
+const SUMMIT_PAUSE = 1300; // ms, bras levés au sommet
+const SEGMENTS = RIDGE.slice(1).map(([bx, by], i) => {
+  const [ax, ay] = RIDGE[i];
+  const len = Math.hypot(bx - ax, by - ay);
+  return { ax, ay, dx: (bx - ax) / len, dy: (by - ay) / len, len, ms: len * (by < ay ? 340 : 210) };
+});
+const WALK_MS = SEGMENTS.reduce((s, g) => s + g.ms, 0) + SUMMIT_PAUSE;
+
+/** Pose du randonneur à l'instant `ms` : position des pieds, direction de la pente, distance parcourue. */
+function hikerAt(ms: number) {
+  let t = ms % WALK_MS, dist = 0;
+  for (let i = 0; i < SEGMENTS.length; i++) {
+    const g = SEGMENTS[i];
+    if (t < g.ms) {
+      const d = g.len * (t / g.ms);
+      return { x: g.ax + g.dx * d, y: g.ay + g.dy * d, dx: g.dx, dy: g.dy, dist: dist + d, summit: false, fade: ms % WALK_MS };
+    }
+    t -= g.ms; dist += g.len;
+    if (i === 0) { // pause au grand sommet
+      if (t < SUMMIT_PAUSE) return { x: RIDGE[1][0], y: RIDGE[1][1], dx: 1, dy: 0, dist, summit: true, fade: ms % WALK_MS };
+      t -= SUMMIT_PAUSE;
+    }
+  }
+  return { x: RIDGE[4][0], y: RIDGE[4][1], dx: 1, dy: 0, dist, summit: false, fade: ms % WALK_MS };
+}
+
+/** Petit bonhomme bâton : pieds posés sur la pente, buste penché dans la montée, bras et jambes alternés. */
+function Hiker({ ms, still }: { ms: number; still: boolean }) {
+  const h = still ? { x: RIDGE[1][0], y: RIDGE[1][1], dx: 1, dy: 0, dist: 0, summit: true, fade: WALK_MS / 2 } : hikerAt(ms);
+  const phase = h.dist * 1.7; // ≈ 2 pas par 3,7 unités de crête
+  const swing = h.summit ? 0 : Math.sin(phase);
+  // Pas mesurés à l'horizontale (sinon, sur une pente raide, les jambes se confondent),
+  // pieds recollés à la pente : y suit la ligne de crête.
+  const slope = h.dy / (h.dx || 1);
+  const sx = swing * 0.85;
+  const f1 = [h.x + sx, h.y + sx * slope];
+  const f2 = [h.x - sx, h.y - sx * slope];
+  const up = h.dy < 0;
+  const lean = h.summit ? 0 : up ? 0.6 : -0.2; // penché en avant en montée, en arrière en descente
+  const bob = h.summit ? 0 : Math.abs(Math.cos(phase)) * 0.2; // le corps se soulève à chaque pas
+  const hip = [h.x + lean * 0.3, h.y - 1.8 - bob];
+  const sh = [hip[0] + lean, hip[1] - 1.5];
+  const head = [sh[0] + lean * 0.4, sh[1] - 1];
+  // Genoux poussés vers l'avant (sens de la marche) : la jambe se plie, on lit une marche.
+  const knee = (f: number[]) => [(hip[0] + f[0]) / 2 + 0.35, (hip[1] + f[1]) / 2];
+  const hands: [number, number][] = h.summit
+    ? [[sh[0] - 1.15, sh[1] - 0.95], [sh[0] + 1.15, sh[1] - 0.95]] // bras levés en V, la tête reste dégagée
+    : [[sh[0] - swing * 0.85, sh[1] + 1.1], [sh[0] + swing * 0.85, sh[1] + 1.1]];
+  // Fondu au départ (pied gauche) et à l'arrivée (pied droit) : la boucle ne se voit pas.
+  const edge = Math.min(h.fade, WALK_MS - h.fade);
+  const opacity = Math.min(1, edge / 450);
+  const p = (a: number[]) => `${a[0].toFixed(2)} ${a[1].toFixed(2)}`;
+  return (
+    <g className="logo-hiker" opacity={opacity.toFixed(2)} fill="none" stroke="var(--logo-hiker)" strokeWidth=".5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={`M${p(f1)} L${p(knee(f1))} L${p(hip)} L${p(knee(f2))} L${p(f2)} M${p(hip)} L${p(sh)} M${p(hands[0])} L${p(sh)} L${p(hands[1])}`} />
+      <circle cx={head[0].toFixed(2)} cy={head[1].toFixed(2)} r=".72" fill="var(--logo-hiker)" stroke="none" />
+    </g>
+  );
+}
+
+/** Horloge du logo : heure accélérée (astre) et temps écoulé (randonneur). */
+function useLogoClock() {
+  const [clock, setClock] = useState(() => ({ hour: realHour(), ms: 0, still: false }));
   useEffect(() => {
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
-      const id = setInterval(() => setHour(realHour()), 60_000);
+      setClock({ hour: realHour(), ms: 0, still: true });
+      const id = setInterval(() => setClock({ hour: realHour(), ms: 0, still: true }), 60_000);
       return () => clearInterval(id);
     }
     const start = performance.now(), h0 = realHour();
     let raf = 0, last = 0;
     const tick = (now: number) => {
-      if (now - last >= FRAME_MS) { last = now; setHour((h0 + ((now - start) / CYCLE_MS) * 24) % 24); }
+      if (now - last >= FRAME_MS) {
+        last = now;
+        const ms = now - start;
+        setClock({ hour: (h0 + (ms / CYCLE_MS) * 24) % 24, ms, still: false });
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, []);
-  return hour;
+  return clock;
 }
 
 export function Logo({ size = 20 }: { size?: number }) {
-  const { day, x, y } = skyAt(useSkyHour());
+  const clock = useLogoClock();
+  const { day, x, y } = skyAt(clock.hour);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const mask = `lune${uid}`, sky = `ciel${uid}`;
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false" overflow="visible">
       <defs>
         {/* croissant de lune : disque moins un disque décalé */}
         <mask id={mask}>
@@ -68,6 +140,8 @@ export function Logo({ size = 20 }: { size?: number }) {
       <path d="M3 25 L12.5 9.5 L18 18.5 L21 14 L29 25 Z" fill="currentColor" />
       {/* versant à l'ombre du grand sommet */}
       <path d="M12.5 9.5 L18 18.5 L16.4 25 L13.8 25 Z" fill="#000" opacity=".16" />
+      {/* trop petit pour être lisible en dessous de 30 px : pas de randonneur */}
+      {size >= 30 && <Hiker ms={clock.ms} still={clock.still} />}
     </svg>
   );
 }
