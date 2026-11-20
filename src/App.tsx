@@ -7,6 +7,7 @@ import { NewMenu, useCreate } from './components/NewMenu';
 import { MoreMenu } from './components/MoreMenu';
 import { Logo } from './components/Logo';
 import { Palette } from './components/Palette';
+import { Puppet } from './components/Puppet';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
 import { useTheme } from './lib/theme';
@@ -209,6 +210,9 @@ export function App({ email }: { email: string | null }) {
 
       {/* Chunk séparé, demandé dès le premier rendu (en parallèle) : le bouton apparaît aussitôt chargé. */}
       <Suspense fallback={null}><AIChat /></Suspense>
+
+      {/* Randonneur du logo qui rejoue la création d'une action demandée à l'IA. */}
+      <Puppet />
 
       <div className="toasts">
         {toasts.map(t => <div key={t.id} className={`toast ${t.tone ?? ''}`}>{t.text}</div>)}

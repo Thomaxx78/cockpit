@@ -6,7 +6,8 @@ import {
   type AIOpResult, type AIProposal, type AIRef, type AIResponse,
 } from '../lib/aiClient';
 import { useStore } from '../lib/store';
-import { go } from '../lib/utils';
+import { go, MOBILE } from '../lib/utils';
+import { playTaskCreation } from './Puppet';
 import { useEditors } from './editors';
 import { EXIT_MS, useInert, usePresence } from '../lib/presence';
 
@@ -161,6 +162,13 @@ export function AIChat() {
     setState(s => ({ ...s, refs: res.refs ?? s.refs }));
     push({ role: 'assistant', text: res.reply, ops: res.ops, proposal: res.proposal && { ...res.proposal, state: 'pending' } });
     if (res.changed) await reload();
+    // Action créée : un randonneur du logo rejoue la création dans l'interface (Puppet.tsx).
+    // Sur téléphone, le panneau couvre tout l'écran : on le referme pour laisser voir la scène.
+    const created = res.ops?.find(o => o.ok && o.kind === 'insert' && o.table === 'tasks');
+    if (created) {
+      if (matchMedia(MOBILE).matches) setOpen(false);
+      playTaskCreation(created.id);
+    }
   };
   const handleError = (e: unknown) =>
     push({ role: 'error', text: e instanceof AIError ? e.message : 'Une erreur inattendue est survenue.' });

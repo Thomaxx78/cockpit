@@ -1,0 +1,31 @@
+/* Randonneur qui sort du logo pour créer un ticket (Puppet.tsx). */
+.puppet { position: fixed; left: 0; top: 0; z-index: 95; pointer-events: none; will-change: transform; }
+.puppet svg { position: absolute; overflow: visible; filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / .28)); }
+/* Pendant ce temps, sa place dans la cordée du logo reste vide. */
+html[data-puppet] .logo-hiker[data-lead] { opacity: 0; }
+
+.puppet-star {
+  position: fixed; z-index: 96; pointer-events: none; font-size: 11px; line-height: 1; color: var(--sun, #ffc94d);
+  translate: -50% -50%; text-shadow: 0 0 4px rgb(0 0 0 / .25);
+  animation: puppet-star .6s var(--ease-out, ease-out) forwards;
+}
+@keyframes puppet-star {
+  from { transform: translate(0, 0) scale(.4) rotate(0); opacity: 1; }
+  to { transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(90deg); opacity: 0; }
+}
+
+/* L'élément heurté tremble ; celui sur lequel il saute s'enfonce (le clic). */
+.puppet-bonk { animation: puppet-bonk .42s cubic-bezier(.3, .7, .4, 1) !important; }
+@keyframes puppet-bonk {
+  0% { transform: none; }
+  18% { transform: translateX(5px) rotate(1.6deg); }
+  40% { transform: translateX(-3px) rotate(-1deg); }
+  62% { transform: translateX(2px) rotate(.5deg); }
+  100% { transform: none; }
+}
+.puppet-press { animation: puppet-press .26s ease-out !important; }
+@keyframes puppet-press {
+  0% { transform: none; }
+  30% { transform: translateY(2px) scale(.96); filter: brightness(.94); }
+  100% { transform: none; }
+}

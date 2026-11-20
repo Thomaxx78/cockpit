@@ -130,7 +130,7 @@ function Hiker({ ms, still, delay, color }: { ms: number; still: boolean; delay:
   const opacity = Math.min(1, edge / 450);
   const p = (a: number[]) => `${a[0].toFixed(2)} ${a[1].toFixed(2)}`;
   return (
-    <g className="logo-hiker" opacity={opacity.toFixed(2)} transform={`translate(${p([h.x, h.y])}) scale(${HIKER_SCALE}) translate(0 ${(-h.lift).toFixed(2)}) rotate(${h.spin.toFixed(1)} 0 -2.4)`}
+    <g className="logo-hiker" data-lead={delay === 0 ? '' : undefined} opacity={opacity.toFixed(2)} transform={`translate(${p([h.x, h.y])}) scale(${HIKER_SCALE}) translate(0 ${(-h.lift).toFixed(2)}) rotate(${h.spin.toFixed(1)} 0 -2.4)`}
       fill="none" stroke={color} strokeWidth=".6" strokeLinecap="round" strokeLinejoin="round">
       <path d={`M${p(f1)} L${p(knee(f1))} L${p(hip)} L${p(knee(f2))} L${p(f2)} M${p(hip)} L${p(sh)} M${p(hands[0])} L${p(sh)} L${p(hands[1])}`} />
       <circle cx={head[0].toFixed(2)} cy={head[1].toFixed(2)} r=".8" fill={color} stroke="none" />

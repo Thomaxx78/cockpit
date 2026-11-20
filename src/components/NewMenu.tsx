@@ -4,6 +4,8 @@ import { todayIso } from '../lib/utils';
 import { useEditors } from './editors';
 import { EXIT_MS, useInert, usePresence } from '../lib/presence';
 
+export const NEW_MENU_EVENT = 'cockpit-new-menu';
+
 /** Bouton « + Nouveau » : action, événement ou sujet. Le sujet ouvert est pré-rempli. */
 export function useCreate(subjectId?: string) {
   const { editTask, editEvent, newSubject } = useEditors();
@@ -22,6 +24,13 @@ export function NewMenu({ subjectId }: { subjectId?: string }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { mounted, closing } = usePresence(open, EXIT_MS.menu);
   useInert(menuRef, closing);
+
+  // Ouverture / fermeture commandée de l'extérieur (le petit bonhomme du logo qui clique dessus).
+  useEffect(() => {
+    const on = (e: Event) => setOpen(!!(e as CustomEvent<boolean>).detail);
+    addEventListener(NEW_MENU_EVENT, on);
+    return () => removeEventListener(NEW_MENU_EVENT, on);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
