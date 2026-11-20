@@ -10,7 +10,7 @@ import { Palette } from './components/Palette';
 import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
 import { useTheme } from './lib/theme';
-import { inPageTransition, useSkyPhase } from './lib/motion';
+import { useSkyPhase, useSlidingIndicator } from './lib/motion';
 import { download, go, useRoute } from './lib/utils';
 import { Calendar } from './views/Calendar';
 import './styles/shell.css';
@@ -49,12 +49,10 @@ const NAV = [
 const PAGES: [string, string][] = [...NAV.map(([p, l]): [string, string] => [p, l]), ['historique', 'Historique']];
 const splash = <div className="splash"><div className="spinner" /></div>;
 
-/** Zone de page. Elle s'anime à son arrivée (ouverture de l'onglet, fin du chargement) ;
-    pendant une transition de page, c'est la View Transition qui anime : on n'ajoute rien,
-    sinon l'animation serait jouée deux fois. Décidé une fois au montage. */
+/** Zone de page, remontée à chaque changement de page : ses éléments arrivent en cascade
+    (classe .enter, voir la section « Mouvement » de styles.css et les styles de chaque vue). */
 function Main({ children }: { children: ReactNode }) {
-  const [enter] = useState(() => !inPageTransition());
-  return <main className={`main${enter ? ' enter' : ''}`}>{children}</main>;
+  return <main className="main enter">{children}</main>;
 }
 
 export function App({ email }: { email: string | null }) {
@@ -63,6 +61,8 @@ export function App({ email }: { email: string | null }) {
   const { db, ready, loadError, saving, saveError, backendKind, toasts, importDB, reload } = store;
   const [palette, setPalette] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const sideNav = useRef<HTMLElement>(null);
+  const tabNav = useRef<HTMLElement>(null);
   // Anciennes adresses (#/calendrier, #/sujets, #/actions…) : on retombe sur le calendrier.
   const raw = parts[0] ?? '';
   const page = ['kanban', 'notes', 'historique'].includes(raw) || (raw === 'sujets' && parts[1]) ? raw : '';
@@ -70,6 +70,9 @@ export function App({ email }: { email: string | null }) {
   const create = useCreate(currentSubject);
   useTheme(); // garde data-theme et theme-color à jour (changement du système, autre onglet)
   useSkyPhase(); // lueur de la barre latérale selon l'heure (aube, jour, crépuscule, nuit)
+  // Fond du lien actif, qui glisse sous les liens (menu latéral et onglets du téléphone).
+  const sideIndicator = useSlidingIndicator(sideNav, '.nav.active', page);
+  const tabIndicator = useSlidingIndicator(tabNav, 'a.active .tab-ico', page);
 
   useEffect(preloadAllWhenIdle, []);
 
@@ -132,14 +135,13 @@ export function App({ email }: { email: string | null }) {
           <div className="brandmark"><Logo size={50} /></div>
           <span className="brandname">Cockpit</span>
         </div>
-        <nav>
+        <nav ref={sideNav} className="side-nav">
+          <span className="nav-indicator" aria-hidden="true" style={sideIndicator} />
           {NAV.map(([path, label, Icon], i) => (
             <a
               key={path} href={'#/' + path} className={`nav ${page === path ? 'active' : ''}`} title={label} aria-current={page === path ? 'page' : undefined}
               onPointerEnter={() => preload(path)} onFocus={() => preload(path)} style={{ '--i': i } as CSSProperties}
             >
-              {/* fond de l'élément actif : un seul à la fois, il glisse d'un lien à l'autre (View Transition) */}
-              {page === path && <span className="nav-pill" aria-hidden="true" />}
               <Icon size={18} /><span>{label}</span>
             </a>
           ))}
@@ -189,13 +191,14 @@ export function App({ email }: { email: string | null }) {
         <Main key={(ready ? 'r:' : 'l:') + (page === 'notes' ? page : page + (parts[1] ?? ''))}><Suspense fallback={splash}>{view}</Suspense></Main>
       </div>
 
-      <nav className="tabbar" aria-label="Navigation principale">
+      <nav ref={tabNav} className="tabbar" aria-label="Navigation principale">
+        <span className="tab-indicator" aria-hidden="true" style={tabIndicator} />
         {NAV.map(([path, , Icon, short]) => (
           <a
             key={path} href={'#/' + path} className={page === path ? 'active' : ''} aria-current={page === path ? 'page' : undefined}
             onPointerDown={() => preload(path)}
           >
-            <span className="tab-ico">{page === path && <span className="tab-pill" aria-hidden="true" />}<Icon size={21} /></span><span>{short}</span>
+            <span className="tab-ico"><Icon size={21} /></span><span>{short}</span>
           </a>
         ))}
       </nav>

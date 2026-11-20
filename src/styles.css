@@ -269,11 +269,16 @@ textarea { resize: vertical; }
   font-weight: 500; transition: background .15s, color .15s;
 }
 .nav:hover { background: var(--side-hover); color: var(--side-ink-strong); }
-.nav { position: relative; isolation: isolate; }
+.side-nav { position: relative; display: flex; flex-direction: column; }
+.nav { position: relative; z-index: 1; } /* au-dessus de l'indicateur */
 .nav.active { color: var(--side-active-ink); font-weight: var(--side-active-weight); }
 .nav.active:hover { background: none; }
-/* Fond de l'élément actif : élément à part pour pouvoir glisser d'un lien à l'autre (section Mouvement) */
-.nav-pill { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--side-active); box-shadow: var(--side-active-shadow); view-transition-name: nav-pill; }
+/* Fond de l'élément actif : un seul indicateur sous les liens, déplacé par useSlidingIndicator (lib/motion.ts) */
+.nav-indicator {
+  position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; border-radius: var(--r-md);
+  background: var(--side-active); box-shadow: var(--side-active-shadow);
+  transition: transform .42s var(--ease-out), width .42s var(--ease-out), height .42s var(--ease-out), opacity .2s;
+}
 .nav.active svg { color: var(--side-active-icon); }
 .side-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 12px 8px 4px; border-top: 1px solid var(--side-line); font-size: var(--fs-xs); color: var(--side-foot-ink); }
 .side-user { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -305,8 +310,6 @@ textarea { resize: vertical; }
 .sync.local { color: var(--amber); background: var(--amber-soft); }
 
 .main { padding: 32px 40px 64px; max-width: 1480px; width: 100%; margin: 0 auto; view-transition-name: page; }
-.main.enter { animation: page-in .5s var(--ease) .18s backwards; } /* arrivée (voir <Main> dans App) */
-@keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
 .page { display: flex; flex-direction: column; gap: 20px; }
 .content > .page { padding: 18px 40px 0; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
@@ -988,8 +991,11 @@ textarea { resize: vertical; }
   .tabbar { height: calc(64px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
   .tabbar a { gap: 2px; font-size: var(--fs-2xs); min-width: 0; }
   .tab-ico { display: grid; place-items: center; width: 52px; height: 30px; border-radius: 15px; transition: background .2s var(--ease), color .2s; }
-  .tab-ico { position: relative; isolation: isolate; }
-  .tab-pill { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--brand-soft); view-transition-name: tab-pill; }
+  .tabbar a { position: relative; z-index: 1; }
+  .tab-indicator {
+    position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; border-radius: 15px; background: var(--brand-soft);
+    transition: transform .42s var(--ease-out), opacity .2s;
+  }
   .tabbar a:active .tab-ico { background: var(--sunken); }
 
   /* Assistant IA */
@@ -1236,23 +1242,36 @@ button.daynum:hover { background: var(--sunken); }
 @keyframes tab-in { from { transform: translateY(100%); } }
 @keyframes page-in { from { opacity: 0; transform: translateY(12px); } }
 
+/* ---------- Arrivée en cascade des éléments d'une page ----------
+   Outils communs, utilisés par chaque vue (styles/motion-*.css) :
+   - .rise : un élément qui monte en apparaissant ; retard optionnel via --d (ex. style="--d: 80ms").
+   - .stagger : ses enfants directs arrivent l'un après l'autre (pas : --stagger-step,
+     départ : --stagger-base). Au-delà du 12e enfant, ils arrivent tous ensemble : pas
+     d'attente interminable sur une longue liste.
+   Ne jouent qu'au montage de l'élément (pas à chaque mise à jour des données). */
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } }
+.main.enter { animation: fade .25s ease backwards; }
+.main.enter .page-head { animation: rise-in .45s var(--ease-out) backwards; }
+.rise { animation: rise-in .45s var(--ease-out) var(--d, 0s) backwards; }
+.stagger > * { animation: rise-in .42s var(--ease-out) backwards; animation-delay: calc(var(--stagger-base, 60ms) + var(--n, 12) * var(--stagger-step, 35ms)); }
+.stagger > :nth-child(1) { --n: 0; }  .stagger > :nth-child(2) { --n: 1; }  .stagger > :nth-child(3) { --n: 2; }
+.stagger > :nth-child(4) { --n: 3; }  .stagger > :nth-child(5) { --n: 4; }  .stagger > :nth-child(6) { --n: 5; }
+.stagger > :nth-child(7) { --n: 6; }  .stagger > :nth-child(8) { --n: 7; }  .stagger > :nth-child(9) { --n: 8; }
+.stagger > :nth-child(10) { --n: 9; } .stagger > :nth-child(11) { --n: 10; } .stagger > :nth-child(12) { --n: 11; }
+
 
 /* ---------- Transitions entre pages (View Transitions, src/lib/motion.ts) ----------
    Page : l'ancienne s'efface vers le haut, la nouvelle monte en douceur ; le reste de
    l'écran ne bouge pas, sauf le fond du lien actif qui glisse jusqu'au nouveau lien. */
 :root[data-vt="page"]::view-transition-old(root),
 :root[data-vt="page"]::view-transition-new(root) { animation: none; }
-::view-transition-old(page) { animation: vt-page-out .16s ease-in both; }
-::view-transition-new(page) { animation: vt-page-in .38s var(--ease-out) .05s both; }
-::view-transition-group(nav-pill),
-::view-transition-group(tab-pill) { animation-duration: .38s; animation-timing-function: var(--ease-out); }
-::view-transition-group(page) { animation-duration: .38s; }
+::view-transition-old(page) { animation: vt-page-out .14s ease-in both; }
+::view-transition-new(page) { animation: none; } /* la nouvelle page anime elle-même ses éléments (cascade) */
 /* Éléments fixes : photographiés à part pour rester au-dessus de la page pendant la transition. */
 .topbar { view-transition-name: topbar; }
 .tabbar { view-transition-name: tabbar; }
 .ai-fab { view-transition-name: ai-fab; }
 @keyframes vt-page-out { to { opacity: 0; transform: translateY(-6px); } }
-@keyframes vt-page-in { from { opacity: 0; transform: translateY(14px); } }
 /* Verrou ↔ appli et changement de thème : fondu enchaîné de tout l'écran. */
 :root[data-vt="auth"]::view-transition-old(root) { animation: vt-fade-out .35s ease both; }
 :root[data-vt="auth"]::view-transition-new(root) { animation: fade .45s ease both; }
