@@ -12,6 +12,7 @@ import { newId, useStore } from '../lib/store';
 import { isActive, type Note, type Task } from '../lib/types';
 import { download, go, MOBILE, useMedia } from '../lib/utils';
 import '../styles/notes.css';
+import '../styles/motion-notes.css';
 
 // Éditeur visuel (Tiptap) chargé seulement quand on modifie une note.
 const NoteEditor = lazy(() => import('./NoteEditor').then(m => ({ default: m.NoteEditor })));
@@ -59,6 +60,14 @@ export function Notes({ id }: { id?: string }) {
   const [renaming, setRenaming] = useState<string | null>(null);
   useEffect(() => { import('./NoteEditor').catch(() => {}); }, []); // éditeur prêt avant le premier « Modifier »
 
+  // Arrivée sur la page : cascade de l'arborescence (classe .arrive, retirée une fois la
+  // cascade jouée ; seuls les retards changent, l'animation ne rejoue donc pas). Le premier
+  // document arrive après l'arborescence ; les suivants (autre note) font un court fondu.
+  const [arrive, setArrive] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setArrive(false), 1200); return () => clearTimeout(t); }, []);
+  const firstDoc = useRef(true);
+  useEffect(() => { firstDoc.current = false; }, []);
+
   const setOpenPersist = useCallback((f: (o: string[]) => string[]) => setOpen(o => {
     const next = f(o);
     try { localStorage.setItem(OPEN_KEY, JSON.stringify(next)); } catch { /* stockage indisponible */ }
@@ -98,7 +107,7 @@ export function Notes({ id }: { id?: string }) {
   contentRef.current = current;
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
-      if (typingTarget(e.target) || document.querySelector('.backdrop')) return;
+      if (typingTarget(e.target) || document.querySelector('.backdrop:not(.leaving)')) return;
       const md = clipboardToMarkdown(e.clipboardData?.getData('text/plain') ?? '', e.clipboardData?.getData('text/html'));
       if (!md) return;
       e.preventDefault();
@@ -165,11 +174,12 @@ export function Notes({ id }: { id?: string }) {
   );
 
   const doc = current
-    ? <NoteDoc key={current.id} note={current} onDelete={() => remove(current)} mobile={mobile} />
-    : <Welcome onPaste={pasteNew} onNew={() => create('file', null)} />;
+    ? <NoteDoc key={current.id} note={current} onDelete={() => remove(current)} mobile={mobile} first={firstDoc.current} />
+    : <Welcome onPaste={pasteNew} onNew={() => create('file', null)} first={firstDoc.current} />;
 
-  if (mobile) return <div className="notes">{id && current ? doc : tree}</div>;
-  return <div className="notes">{tree}{doc}</div>;
+  const cls = `notes ${arrive ? 'arrive' : ''}`;
+  if (mobile) return <div className={cls}>{id && current ? doc : tree}</div>;
+  return <div className={cls}>{tree}{doc}</div>;
 }
 
 function QuickList({ title, icon, items, current }: { title: string; icon: ReactNode; items: Note[]; current?: Note }) {
@@ -232,10 +242,13 @@ function Branch(p: BranchProps) {
               </span>
             )}
           </div>
-          {folder && isOpen && (
-            p.notes.some(c => c.parent_id === n.id)
-              ? <div role="group"><Branch {...p} parent={n.id} depth={p.depth + 1} /></div>
-              : <div className="nt-row nt-empty-folder" style={{ ['--d' as string]: p.depth + 1 }}>Dossier vide</div>
+          {/* Contenu toujours monté, replié en CSS : il se déplie et se replie en douceur. */}
+          {folder && (
+            <div className={`nt-group ${isOpen ? 'open' : ''}`}>
+              {p.notes.some(c => c.parent_id === n.id)
+                ? <div role="group"><Branch {...p} parent={n.id} depth={p.depth + 1} /></div>
+                : <div><div className="nt-row nt-empty-folder" style={{ ['--d' as string]: p.depth + 1 }}>Dossier vide</div></div>}
+            </div>
           )}
         </div>
       );
@@ -243,9 +256,10 @@ function Branch(p: BranchProps) {
   </>;
 }
 
-function Welcome({ onPaste, onNew }: { onPaste: () => void; onNew: () => void }) {
+function Welcome({ onPaste, onNew, first }: { onPaste: () => void; onNew: () => void; first: boolean }) {
+  const [enter] = useState(first ? 'nt-arrive' : 'nt-swap'); // figé au montage
   return (
-    <section className="nt-doc nt-welcome">
+    <section className={`nt-doc nt-welcome ${enter}`}>
       <div className="nt-welcome-ico"><NotebookPen size={26} /></div>
       <h3>Tes notes, mises en forme automatiquement</h3>
       <p>Demande à Claude (ou à un autre assistant) de te rédiger une note, copie sa réponse, puis colle-la ici : titres, listes, tableaux et code s’affichent directement mis en forme.</p>
@@ -258,8 +272,10 @@ function Welcome({ onPaste, onNew }: { onPaste: () => void; onNew: () => void })
   );
 }
 
-function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void; mobile: boolean }) {
+function NoteDoc({ note, onDelete, mobile, first }: { note: Note; onDelete: () => void; mobile: boolean; first: boolean }) {
   const { db, saveNote, saveTasks, toast } = useStore();
+  // Figé au montage (une note = un montage, clé = id) : la classe ne change plus ensuite.
+  const [enter] = useState(first ? 'nt-arrive' : 'nt-swap');
   const { editTask, editEvent } = useEditors();
   // null : lecture ; texte : en cours de modification. Une note vide (ou un compte rendu tout juste créé) s'ouvre en écriture.
   const [draft, setDraft] = useState<string | null>(() => {
@@ -465,7 +481,7 @@ function NoteDoc({ note, onDelete, mobile }: { note: Note; onDelete: () => void;
   const toc = !mobile && draft === null && headings.length >= 3;
 
   return (
-    <section className="nt-doc">
+    <section className={`nt-doc ${enter}`}>
       <div className="nt-doc-bar">
         {mobile && <button className="btn ghost back" onClick={() => go('notes')}><ArrowLeft size={16} /> Notes</button>}
         <nav className="nt-crumbs" aria-label="Emplacement">

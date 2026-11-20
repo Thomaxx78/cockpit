@@ -1,0 +1,63 @@
+/* Calendrier : arrivée en cascade et changement de mois.
+   Calendar.tsx pose un état sur .cal-page pendant 1 s : .is-arrive (ouverture de la page),
+   .is-next / .is-prev (mois suivant / précédent). Hors de ces instants, la grille ne s'anime
+   pas : un élément ajouté par la synchro ou un ticket déposé apparaît simplement à sa place.
+   Toujours `backwards` : aucune transformation ne reste une fois l'animation finie. */
+
+/* ---------- Ouverture de la page ----------
+   en-tête (styles.css) → prochaine réunion → « À planifier » → cadre de la grille → cases en
+   vague diagonale depuis le coin haut gauche (--k = ligne + colonne) → leur contenu → heure
+   actuelle qui se trace. Tout est posé vers 700 ms, avant la fin de l'état (1 s). */
+.cal-page.is-arrive .cal-tray { animation: rise-in .45s var(--ease-out) 110ms backwards; }
+.cal-page.is-arrive .cal-chip { animation: cal-pop .32s var(--ease-out) backwards; animation-delay: calc(170ms + var(--i, 0) * 25ms); }
+.cal-page.is-arrive .calendar { animation: rise-in .45s var(--ease-out) 130ms backwards; }
+/* Les cases : un simple fondu (pas de déplacement, les lignes de la grille restent droites). */
+.cal-page.is-arrive .day { animation: fade .28s ease-out backwards; animation-delay: calc(170ms + var(--k, 0) * 16ms); }
+.cal-page.is-arrive .day > :not(.daynum) { animation: cal-settle .3s var(--ease-out) backwards; animation-delay: calc(250ms + var(--k, 0) * 16ms); }
+.cal-page.is-arrive .now-line { --now-d: calc(330ms + var(--k, 0) * 16ms); }
+
+/* ---------- Changement de mois ----------
+   La grille est remontée (clé du mois) : son cadre reste en place, le contenu des cases et
+   le titre glissent depuis le côté où l'on va. */
+.cal-page.is-next .day > *, .cal-page.is-next .month-title { animation: cal-from-right .3s var(--ease-out) backwards; }
+.cal-page.is-prev .day > *, .cal-page.is-prev .month-title { animation: cal-from-left .3s var(--ease-out) backwards; }
+
+/* Heure actuelle : la ligne se trace depuis son point, à l'ouverture et en arrivant sur le mois. */
+.cal-page:is(.is-arrive, .is-next, .is-prev) .now-line { animation: cal-draw .38s var(--ease-out) var(--now-d, 140ms) backwards; }
+
+/* ---------- Prochaine réunion ----------
+   Monte à son apparition (ouverture de la page, ou réunion ajoutée pour aujourd'hui). */
+.cal-page .join-card { animation: rise-in .42s var(--ease-out) var(--join-d, 0s) backwards; }
+.cal-page.is-arrive .join-card { --join-d: 70ms; }
+
+/* « À planifier » rouvert : la liste revient en fondu. */
+.cal-tray-list { animation: fade .2s ease backwards; }
+
+/* ---------- Panneau de la journée / agenda du mois ----------
+   Ordinateur : le panneau monte quand il s'ouvre (display: none → block relance l'animation).
+   Téléphone : toujours affiché, il arrive après la grille. Changer de jour remonte le titre
+   et la vue (clés) : fondu enchaîné, puis les créneaux se posent un à un. */
+.cal-page .agenda { animation: rise-in .4s var(--ease-out) var(--agenda-d, 0s) backwards; }
+.cal-page.is-arrive .agenda { --agenda-d: 260ms; }
+.agenda .panel-head h3 { animation: fade .25s ease backwards; }
+.agenda .dayview, .agenda > .empty { animation: fade .28s ease var(--agenda-d, 0s) backwards; }
+.agenda .date-row { animation: cal-settle .32s var(--ease-out) backwards; animation-delay: calc(var(--agenda-d, 0s) + 40ms + var(--i, 0) * 22ms); }
+.dayview .dv-chip, .dayview .dv-block { animation: cal-settle .32s var(--ease-out) backwards; animation-delay: calc(var(--agenda-d, 0s) + 60ms + var(--i, 0) * 30ms); }
+.dayview .dv-now { animation: cal-draw .4s var(--ease-out) calc(var(--agenda-d, 0s) + 220ms) backwards; }
+
+@keyframes cal-settle { from { opacity: 0; transform: translateY(4px); } }
+@keyframes cal-pop { from { opacity: 0; transform: translateY(4px) scale(.97); } }
+@keyframes cal-from-right { from { opacity: 0; transform: translateX(10px); } }
+@keyframes cal-from-left { from { opacity: 0; transform: translateX(-10px); } }
+/* Le point apparaît, puis le trait s'étend vers la droite (découpe plutôt qu'échelle : le point reste rond). */
+@keyframes cal-draw {
+  from { opacity: 0; clip-path: inset(-6px calc(100% - 6px) -6px -6px); }
+  30% { opacity: 1; }
+  to { clip-path: inset(-6px); }
+}
+
+/* « Réduire les animations » : styles.css raccourcit déjà les durées ; on retire aussi les
+   retards, sinon les éléments resteraient invisibles le temps de leur tour. */
+@media (prefers-reduced-motion: reduce) {
+  .cal-page, .cal-page * { animation-delay: 0s !important; }
+}

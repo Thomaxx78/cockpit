@@ -1,0 +1,70 @@
+/* ---------- Fenêtres, menus, recherche, assistant, notifications : mouvement ----------
+   Même famille partout : arrivée en --ease-out (départ vif, fin très douce), léger
+   agrandissement depuis ~.97 et petit déplacement ; sortie plus courte (~30 %), qui
+   accélère en partant. Sorties pilotées par src/lib/presence.ts (classe `.leaving`) :
+   leurs durées doivent rester égales à EXIT_MS.
+   Ce fichier est chargé avant styles.css (import d'un composant) : les sélecteurs sont
+   préfixés par :root pour l'emporter sur les règles d'origine. */
+
+:root { --ease-exit: cubic-bezier(.4, 0, .9, .4); }
+
+@keyframes ov-fade-out { to { opacity: 0; } }
+
+/* ---------- Fenêtre ---------- */
+@keyframes ov-modal-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes ov-modal-out { to { opacity: 0; transform: translateY(6px) scale(.98); } }
+:root .backdrop { animation: fade .2s ease-out backwards; }
+:root .backdrop > .modal { animation: ov-modal-in .26s var(--ease-out) backwards; }
+/* Sortie : le voile s'éclaircit, la fenêtre redescend un peu ; la page dessous est déjà cliquable. */
+:root .backdrop.leaving { animation: ov-fade-out .18s ease-in forwards; pointer-events: none; }
+:root .backdrop.leaving > .modal { animation: ov-modal-out .18s var(--ease-exit) forwards; }
+
+/* Champs : arrivée à peine décalée (≤ 150 ms d'écart en tout). Opacité seule + 4 px :
+   le champ qui a le focus est utilisable tout de suite. */
+@keyframes ov-field-in { from { opacity: 0; transform: translateY(4px); } }
+:root .modal-body > .form > * { animation: ov-field-in .26s var(--ease-out) backwards; animation-delay: calc(40ms + var(--f, 7) * 16ms); }
+.modal-body > .form > :nth-child(1) { --f: 0; } .modal-body > .form > :nth-child(2) { --f: 1; }
+.modal-body > .form > :nth-child(3) { --f: 2; } .modal-body > .form > :nth-child(4) { --f: 3; }
+.modal-body > .form > :nth-child(5) { --f: 4; } .modal-body > .form > :nth-child(6) { --f: 5; }
+.modal-body > .form > :nth-child(7) { --f: 6; }
+
+/* ---------- Recherche (Ctrl K) : tombe légèrement d'en haut, remonte en partant ---------- */
+@keyframes ov-palette-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
+@keyframes ov-palette-out { to { opacity: 0; transform: translateY(-4px) scale(.985); } }
+:root .palette-back > .palette { animation: ov-palette-in .2s var(--ease-out) backwards; }
+:root .palette-back.leaving { animation: ov-fade-out .14s ease-in forwards; }
+:root .palette-back.leaving > .palette { animation: ov-palette-out .14s var(--ease-exit) forwards; }
+
+/* ---------- Menus déroulants (« Nouveau », « ⋯ ») ---------- */
+@keyframes ov-menu-in { from { opacity: 0; transform: translateY(-4px) scale(.97); } }
+@keyframes ov-menu-out { to { opacity: 0; transform: translateY(-2px) scale(.98); } }
+:root .new-menu > .menu { animation: ov-menu-in .16s var(--ease-out) backwards; }
+:root .new-menu > .menu.leaving { animation: ov-menu-out .12s var(--ease-exit) forwards; pointer-events: none; }
+
+/* ---------- Assistant IA : se pose depuis son bouton, y retourne ---------- */
+@keyframes ov-ai-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes ov-ai-out { to { opacity: 0; transform: translateY(8px) scale(.97); } }
+:root .ai-panel { animation: ov-ai-in .26s var(--ease-out) backwards; }
+:root .ai-panel.leaving { animation: ov-ai-out .18s var(--ease-exit) forwards; pointer-events: none; }
+
+/* ---------- Notifications ----------
+   Arrivée plus douce ; elles s'effacent d'elles-mêmes juste avant d'être retirées
+   (durée de vie fixe : 2,8 s, dans lib/store.tsx). */
+@keyframes ov-toast-in { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+@keyframes ov-toast-out { to { opacity: 0; transform: translateY(4px); } }
+:root .toasts > .toast { animation: ov-toast-in .32s var(--ease-out) backwards, ov-toast-out .24s var(--ease-exit) 2.56s forwards; }
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 700px) {
+  /* Fenêtres en feuille du bas : elle monte, puis redescend entièrement en partant. */
+  @keyframes ov-sheet-in { from { transform: translateY(100%); } }
+  @keyframes ov-sheet-out { to { transform: translateY(100%); } }
+  :root .backdrop > .modal { animation: ov-sheet-in .32s var(--ease-out) backwards; }
+  :root .backdrop.leaving:not(.palette-back) { animation-duration: .22s; }
+  :root .backdrop.leaving > .modal { animation: ov-sheet-out .22s cubic-bezier(.4, 0, 1, 1) forwards; }
+  /* Plein écran : glissement seul, sans agrandissement. */
+  @keyframes ov-ai-in-sm { from { opacity: 0; transform: translateY(12px); } }
+  @keyframes ov-ai-out-sm { to { opacity: 0; transform: translateY(12px); } }
+  :root .ai-panel { animation-name: ov-ai-in-sm; }
+  :root .ai-panel.leaving { animation-name: ov-ai-out-sm; }
+}

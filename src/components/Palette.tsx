@@ -4,15 +4,19 @@ import { useStore } from '../lib/store';
 import { go } from '../lib/utils';
 import { useEditors } from './editors';
 import { Dot } from './ui';
+import { useInert } from '../lib/presence';
 
 type Result = { key: string; label: string; hint: string; color?: string; icon: 'page' | 'subject' | 'task' | 'note'; run: () => void };
 
-export function Palette({ onClose, pages }: { onClose: () => void; pages: [string, string][] }) {
+export function Palette({ onClose, pages, closing = false }: { onClose: () => void; pages: [string, string][]; closing?: boolean }) {
   const { db, subject } = useStore();
   const { editTask } = useEditors();
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+  // Sortie animée : App la garde affichée (usePresence) le temps de la classe .leaving.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useInert(rootRef, closing);
 
   const results = useMemo<Result[]>(() => {
     const n = q.trim().toLowerCase();
@@ -39,7 +43,7 @@ export function Palette({ onClose, pages }: { onClose: () => void; pages: [strin
   const pick = (r?: Result) => { if (!r) return; onClose(); r.run(); };
 
   return (
-    <div className="backdrop palette-back" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+    <div ref={rootRef} className={`backdrop palette-back${closing ? ' leaving' : ''}`} onMouseDown={e => !closing && e.target === e.currentTarget && onClose()}>
       <div className="palette">
         <label className="palette-input">
           <Search size={18} />

@@ -1,0 +1,53 @@
+/* ---------- Arrivée : fiche sujet et historique ----------
+   Animations au montage seulement (fill backwards : rien ne reste après). Les lignes qui
+   peuvent changer de place (actions) sont animées en JS dans SubjectDetail.tsx. */
+
+/* ----- Fiche sujet : retour → en-tête → panneaux dans l'ordre de lecture ----- */
+.subject-page > .back { animation: fade .3s ease backwards; }
+.subject-page > .hero { animation: rise-in .45s var(--ease-out) 40ms backwards; }
+.subject-page .detail > .col > .panel { animation: rise-in .45s var(--ease-out) var(--d, 0s) backwards; }
+/* Deux colonnes : on alterne gauche / droite, rangée par rangée. */
+.subject-page .detail > .col:first-child > .panel:nth-child(1) { --d: 110ms; }
+.subject-page .detail > .col:last-child > .panel:nth-child(1)  { --d: 150ms; }
+.subject-page .detail > .col:first-child > .panel:nth-child(2) { --d: 200ms; }
+.subject-page .detail > .col:last-child > .panel:nth-child(2)  { --d: 240ms; }
+.subject-page .detail > .col:first-child > .panel:nth-child(3) { --d: 290ms; }
+.subject-page .detail > .col:last-child > .panel:nth-child(3)  { --d: 330ms; }
+.subject-page .detail > .col:last-child > .panel:nth-child(4)  { --d: 380ms; }
+.subject-page > .delete-subject { animation: fade .4s ease 420ms backwards; }
+/* Une seule colonne : de haut en bas. */
+@media (max-width: 1100px) {
+  .subject-page .detail > .col:first-child > .panel:nth-child(2) { --d: 160ms; }
+  .subject-page .detail > .col:first-child > .panel:nth-child(3) { --d: 210ms; }
+  .subject-page .detail > .col:last-child > .panel:nth-child(1)  { --d: 260ms; }
+  .subject-page .detail > .col:last-child > .panel:nth-child(2)  { --d: 300ms; }
+  .subject-page .detail > .col:last-child > .panel:nth-child(3)  { --d: 340ms; }
+  .subject-page .detail > .col:last-child > .panel:nth-child(4)  { --d: 380ms; }
+}
+
+/* Barre d'avancement : se remplit depuis la gauche une fois l'en-tête posé ; ensuite,
+   la transition de largeur existante suit les changements. */
+.subject-page .hero-progress .progress span { transform-origin: left; animation: fill-in .7s var(--ease-out) .3s backwards; }
+@keyframes fill-in { from { transform: scaleX(0); } }
+
+/* Historique du sujet : une entrée qui arrive en direct (ou « Tout voir ») apparaît en douceur. */
+.subject-page .hist-entry { animation: entry-in .3s var(--ease-out) backwards; }
+@keyframes entry-in { from { opacity: 0; transform: translateY(-4px); } }
+
+/* ----- Historique : chiffres → sections → entrées des premières sections ----- */
+.history .hist-stats { --stagger-base: 50ms; --stagger-step: 40ms; }
+.history .hist-grid > .panel, .history > .hist-empty { animation: rise-in .45s var(--ease-out) var(--d, 140ms) backwards; }
+.history .hist-grid > .panel:nth-child(2) { --d: 200ms; }
+.history .hist-grid > .panel:nth-child(3) { --d: 260ms; }
+.history .hist-grid > .panel:nth-child(4) { --d: 320ms; }
+/* Entrées des deux premières sections (celles qu'on voit d'abord) : l'une après l'autre,
+   avec un plafond (8) pour ne pas faire attendre. Les suivantes arrivent avec leur section. */
+.history .hist-grid > .panel:nth-child(-n+2) .hist-list > li {
+  animation: rise-in .38s var(--ease-out) backwards;
+  animation-delay: calc(var(--d, 140ms) + 90ms + var(--n, 8) * 30ms);
+}
+.history .hist-list > li:nth-child(1) { --n: 0; } .history .hist-list > li:nth-child(2) { --n: 1; }
+.history .hist-list > li:nth-child(3) { --n: 2; } .history .hist-list > li:nth-child(4) { --n: 3; }
+.history .hist-list > li:nth-child(5) { --n: 4; } .history .hist-list > li:nth-child(6) { --n: 5; }
+.history .hist-list > li:nth-child(7) { --n: 6; } .history .hist-list > li:nth-child(8) { --n: 7; }
+.history > .hist-note { animation: fade .5s ease .4s backwards; }

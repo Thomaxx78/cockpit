@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { Monitor, Moon, MoreHorizontal, Sun } from 'lucide-react';
 import { useTheme, type Theme } from '../lib/theme';
+import { EXIT_MS, useInert, usePresence } from '../lib/presence';
 
 export type MoreItem = { icon: ReactNode; label: string; hint?: string; run: () => void; danger?: boolean };
 
@@ -52,6 +53,9 @@ function ThemeSwitch() {
 export function MoreMenu({ items, status }: { items: MoreItem[]; status?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { mounted, closing } = usePresence(open, EXIT_MS.menu);
+  useInert(menuRef, closing);
 
   useEffect(() => {
     if (!open) return;
@@ -67,8 +71,8 @@ export function MoreMenu({ items, status }: { items: MoreItem[]; status?: ReactN
       <button className="icon-btn bordered" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-haspopup="menu" aria-label="Plus d’options">
         <MoreHorizontal size={18} />
       </button>
-      {open && (
-        <div className="menu" role="menu">
+      {mounted && (
+        <div ref={menuRef} className={`menu${closing ? ' leaving' : ''}`} role="menu">
           {status && <div className="menu-status">{status}</div>}
           {items.map(it => (
             <button key={it.label} role="menuitem" className={it.danger ? 'danger' : ''} onClick={() => { setOpen(false); it.run(); }}>

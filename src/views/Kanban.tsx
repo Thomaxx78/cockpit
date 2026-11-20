@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
 import {
   closestCorners, DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, useDroppable, useSensor, useSensors,
   type DragEndEvent, type DragOverEvent, type DragStartEvent,
@@ -12,14 +12,15 @@ import { Prio, SubjectTag } from '../components/ui';
 import { useStore } from '../lib/store';
 import { isActive, PRIORITIES, TASK_STATUSES, type Task } from '../lib/types';
 import { cleanOwner, daysFrom, statusClass } from '../lib/utils';
+import '../styles/motion-kanban.css';
 
 type Cols = Record<string, string[]>;
 
-function Card({ t, overlay }: { t: Task; overlay?: boolean }) {
+function Card({ t, overlay, landed, entry }: { t: Task; overlay?: boolean; landed?: boolean; entry?: 'cascade' | 'appear' }) {
   const owner = cleanOwner(t.owner);
   const notes = useStore().db.notes.filter(n => n.task_id === t.id).length;
   return (
-    <div className={`kcard ${overlay ? 'overlay' : ''} ${t.status === 'Terminé' ? 'is-done' : ''}`} title={owner ? `Interlocuteur : ${owner}` : undefined}>
+    <div className={`kcard ${overlay ? 'overlay' : ''} ${landed ? 'landed' : ''} ${entry ? 'k-' + entry : ''} ${t.status === 'Terminé' ? 'is-done' : ''}`} title={owner ? `Interlocuteur : ${owner}` : undefined}>
       <div className="kcard-top"><div className="kcard-name">{t.name}</div><Prio p={t.priority} /></div>
       <div className="meta">
         <SubjectTag id={t.subject_id} />
@@ -30,27 +31,30 @@ function Card({ t, overlay }: { t: Task; overlay?: boolean }) {
   );
 }
 
-function SortableCard({ t }: { t: Task }) {
+// --i : rang de la carte dans sa colonne, pour la cascade d'arrivée (styles/motion-kanban.css).
+// L'entrée est choisie au montage et ne change plus : une mise à jour ne la rejoue pas.
+function SortableCard({ t, i, landed, arriving }: { t: Task; i: number; landed: boolean; arriving: MutableRefObject<boolean> }) {
+  const [entry] = useState<'cascade' | 'appear'>(() => (arriving.current ? 'cascade' : 'appear'));
   const { editTask } = useEditors();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: t.id });
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1, '--i': Math.min(i, 7) } as CSSProperties}
       {...attributes}
       {...listeners}
       onClick={() => editTask(t)}
     >
-      <Card t={t} />
+      <Card t={t} landed={landed} entry={entry} />
     </div>
   );
 }
 
-function Column({ status, ids, byId }: { status: string; ids: string[]; byId: Map<string, Task> }) {
+function Column({ status, index, ids, byId, landed, arriving }: { status: string; index: number; ids: string[]; byId: Map<string, Task>; landed: string | null; arriving: MutableRefObject<boolean> }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const { editTask } = useEditors();
   return (
-    <section id={'kcol-' + statusClass(status)} className={`kcol ${isOver ? 'over' : ''}`} aria-label={`Colonne ${status}, ${ids.length} carte${ids.length > 1 ? 's' : ''}`}>
+    <section id={'kcol-' + statusClass(status)} className={`kcol ${isOver ? 'over' : ''}`} style={{ '--c': index } as CSSProperties} aria-label={`Colonne ${status}, ${ids.length} carte${ids.length > 1 ? 's' : ''}`}>
       <header className="kcol-head">
         <span className={`kcol-dot ${statusClass(status)}`} />
         {status}
@@ -58,7 +62,7 @@ function Column({ status, ids, byId }: { status: string; ids: string[]; byId: Ma
       </header>
       <SortableContext id={status} items={ids} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className="kcol-body">
-          {ids.map(id => byId.get(id) && <SortableCard key={id} t={byId.get(id)!} />)}
+          {ids.map((id, i) => byId.get(id) && <SortableCard key={id} t={byId.get(id)!} i={i} landed={id === landed} arriving={arriving} />)}
           <button className="kadd" onClick={() => editTask(null, { status })}><Plus size={15} /> Ajouter</button>
         </div>
       </SortableContext>
@@ -90,6 +94,17 @@ export function Kanban() {
   const [drag, setDrag] = useState<Cols | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  // Cascade d'arrivée : seulement à l'ouverture de la page. Ensuite (ajout, filtre, synchro,
+  // changement de colonne), les cartes qui apparaissent se contentent d'un fondu.
+  const arriving = useRef(true);
+  useEffect(() => { const t = setTimeout(() => { arriving.current = false; }, 600); return () => clearTimeout(t); }, []);
+  // Carte tout juste déposée : un halo bref montre où elle a atterri.
+  const [landed, setLanded] = useState<string | null>(null);
+  useEffect(() => {
+    if (!landed) return;
+    const t = setTimeout(() => setLanded(null), 900);
+    return () => clearTimeout(t);
+  }, [landed]);
 
   // Sur téléphone, on arrive sur « À faire » : le backlog (souvent vide) reste à gauche, accessible en glissant.
   useLayoutEffect(() => {
@@ -155,6 +170,7 @@ export function Kanban() {
     setDrag(null);
     if (!c || !over) return;
     const id = String(active.id);
+    setLanded(id);
     const to = containerOf(c, id)!;
     let list = c[to];
     const overIdx = list.indexOf(String(over.id));
@@ -168,7 +184,7 @@ export function Kanban() {
   };
 
   return (
-    <div className="page">
+    <div className="page kanban-page">
       <div className="page-head">
         <div>
           <h2>Kanban</h2>
@@ -217,7 +233,7 @@ export function Kanban() {
         onDragCancel={() => { setDrag(null); setActiveId(null); }}
       >
         <div className="kanban" ref={boardRef}>
-          {TASK_STATUSES.map(s => <Column key={s} status={s} ids={cols[s]} byId={byId} />)}
+          {TASK_STATUSES.map((s, i) => <Column key={s} status={s} index={i} ids={cols[s]} byId={byId} landed={landed} arriving={arriving} />)}
         </div>
         <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' }}>
           {activeId && byId.get(activeId) ? <Card t={byId.get(activeId)!} overlay /> : null}

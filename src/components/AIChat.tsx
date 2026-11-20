@@ -8,6 +8,7 @@ import {
 import { useStore } from '../lib/store';
 import { go } from '../lib/utils';
 import { useEditors } from './editors';
+import { EXIT_MS, useInert, usePresence } from '../lib/presence';
 
 type Msg = {
   id: number;
@@ -77,6 +78,9 @@ export function AIChat() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nextId = useRef(Date.now());
   const available = aiAvailable();
+  // Le panneau reste affiché le temps de sa sortie ; le bouton revient aussitôt, dessous.
+  const { mounted, closing } = usePresence(open, EXIT_MS.panel);
+  useInert(panelRef, closing);
 
   // Sur téléphone, le bouton s'efface quand on descend dans la page et revient quand on remonte.
   const [tucked, setTucked] = useState(false);
@@ -100,7 +104,7 @@ export function AIChat() {
   useEffect(() => {
     if (!open) return;
     inputRef.current?.focus();
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.backdrop') && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.backdrop:not(.leaving)') && setOpen(false);
     // Un clic en dehors du panneau le ferme (les messages sont conservés).
     // Ignoré dans les fenêtres ouvertes depuis le chat (édition d'une action…) et les notifications.
     const outside = (e: PointerEvent) => {
@@ -118,7 +122,7 @@ export function AIChat() {
       const t = e.target as HTMLElement;
       if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return;
       if (t === inputRef.current || /INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable) return;
-      if (document.querySelector('.backdrop') || !inputRef.current || inputRef.current.disabled) return;
+      if (document.querySelector('.backdrop:not(.leaving)') || !inputRef.current || inputRef.current.disabled) return;
       e.stopPropagation();
       inputRef.current.focus(); // le caractère est inséré dans le champ qui vient de recevoir le focus
     };
@@ -209,8 +213,8 @@ export function AIChat() {
         </button>
       )}
 
-      {open && (
-        <section className="ai-panel" role="dialog" aria-label="Assistant IA" ref={panelRef}>
+      {mounted && (
+        <section className={`ai-panel${closing ? ' leaving' : ''}`} role="dialog" aria-label="Assistant IA" ref={panelRef}>
           <header className="ai-head">
             <span className="ai-avatar"><Sparkles size={17} /></span>
             <div className="ai-title">

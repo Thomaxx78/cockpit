@@ -6,6 +6,7 @@ import { EVENT_KINDS, PALETTE, PRIO_LABELS, PRIORITIES, SUBJECT_STATUSES, TASK_S
 import { go } from '../lib/utils';
 import { newNote, useMeetingNotes } from '../lib/notes';
 import { Modal } from './ui';
+import { modalExitMs, usePresence } from '../lib/presence';
 
 type Editors = {
   editTask: (t: Task | null, defaults?: Partial<Task>) => void;
@@ -23,8 +24,14 @@ type Open =
 
 export function EditorsProvider({ children }: { children: ReactNode }) {
   const { db } = useStore();
-  const [open, setOpen] = useState<Open>(null);
-  const close = () => setOpen(null);
+  // La dernière fenêtre ouverte reste affichée pendant sa sortie ; `seq` : nouvelle ouverture
+  // = nouvel éditeur (état neuf), même si la précédente n'a pas fini de sortir.
+  const [current, setCurrent] = useState<{ open: Open; seq: number; visible: boolean }>({ open: null, seq: 0, visible: false });
+  const setOpen = (open: Open) => setCurrent(c => ({ open, seq: c.seq + 1, visible: true }));
+  const close = () => setCurrent(c => ({ ...c, visible: false }));
+  const { mounted, closing } = usePresence(current.visible, modalExitMs());
+  const open = mounted ? current.open : null;
+  const m = { onClose: close, closing };
 
   const editors: Editors = {
     editTask: (t, d = {}) => setOpen({
@@ -54,9 +61,9 @@ export function EditorsProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={editors}>
       {children}
-      {open?.kind === 'task' && <TaskEditor initial={open.row} isNew={open.isNew} onClose={close} />}
-      {open?.kind === 'event' && <EventEditor initial={open.row} isNew={open.isNew} onClose={close} />}
-      {open?.kind === 'subject' && <SubjectCreator initial={open.row} onClose={close} />}
+      {open?.kind === 'task' && <TaskEditor initial={open.row} isNew={open.isNew} key={current.seq} {...m} />}
+      {open?.kind === 'event' && <EventEditor initial={open.row} isNew={open.isNew} key={current.seq} {...m} />}
+      {open?.kind === 'subject' && <SubjectCreator initial={open.row} key={current.seq} {...m} />}
     </Ctx.Provider>
   );
 }
@@ -71,7 +78,7 @@ function SubjectSelect({ value, onChange }: { value: string | null; onChange: (v
   );
 }
 
-function TaskEditor({ initial, isNew, onClose }: { initial: Task; isNew: boolean; onClose: () => void }) {
+function TaskEditor({ initial, isNew, onClose, closing }: { initial: Task; isNew: boolean; onClose: () => void; closing: boolean }) {
   const { saveTask, deleteTask, toast, subject } = useStore();
   const [t, setT] = useState(initial);
   const set = (p: Partial<Task>) => setT(x => ({ ...x, ...p }));
@@ -86,6 +93,7 @@ function TaskEditor({ initial, isNew, onClose }: { initial: Task; isNew: boolean
       title={isNew ? 'Nouvelle action' : "Modifier l'action"}
       accent={subject(t.subject_id)?.color}
       onClose={onClose}
+      closing={closing}
       footer={<>
         {!isNew && <button className="btn danger ghost" onClick={() => { if (confirm('Supprimer cette action ?')) { deleteTask(t.id); toast('Action supprimée'); onClose(); } }}><Trash2 size={15} /> Supprimer</button>}
         <span className="grow" />
@@ -145,7 +153,7 @@ function Linkified({ text }: { text: string }) {
   );
 }
 
-function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: boolean; onClose: () => void }) {
+function EventEditor({ initial, isNew, onClose, closing }: { initial: CalEvent; isNew: boolean; onClose: () => void; closing: boolean }) {
   const { saveEvent, deleteEvent, toast, subject } = useStore();
   const meeting = useMeetingNotes();
   const meetingNotes = isNew ? [] : meeting.notesOf(initial.id);
@@ -164,6 +172,7 @@ function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: bo
       title={isNew ? 'Nouvel événement' : "Modifier l'événement"}
       accent={subject(e.subject_id)?.color}
       onClose={onClose}
+      closing={closing}
       footer={<>
         {!isNew && !fromOutlook && <button className="btn danger ghost" onClick={() => { if (confirm('Supprimer cet événement ?')) { deleteEvent(e.id); toast('Événement supprimé'); onClose(); } }}><Trash2 size={15} /> Supprimer</button>}
         {!isNew && e.subject_id && <button className="btn ghost" onClick={() => { onClose(); go('sujets/' + e.subject_id); }}>Ouvrir le sujet</button>}
@@ -204,7 +213,7 @@ function EventEditor({ initial, isNew, onClose }: { initial: CalEvent; isNew: bo
   );
 }
 
-function SubjectCreator({ initial, onClose }: { initial: Subject; onClose: () => void }) {
+function SubjectCreator({ initial, onClose, closing }: { initial: Subject; onClose: () => void; closing: boolean }) {
   const { saveSubject, toast, db } = useStore();
   const [s, setS] = useState(initial);
   const set = (p: Partial<Subject>) => setS(x => ({ ...x, ...p }));
@@ -217,7 +226,7 @@ function SubjectCreator({ initial, onClose }: { initial: Subject; onClose: () =>
     go('sujets/' + s.id);
   };
   return (
-    <Modal title="Nouveau sujet" accent={s.color} onClose={onClose} footer={<>
+    <Modal title="Nouveau sujet" accent={s.color} onClose={onClose} closing={closing} footer={<>
       <span className="grow" />
       <button className="btn" onClick={onClose}>Annuler</button>
       <button className="btn primary" onClick={submit}>Créer le sujet</button>

@@ -11,6 +11,7 @@ import { SEED } from './lib/seed';
 import { parseImport, useStore } from './lib/store';
 import { useTheme } from './lib/theme';
 import { useSkyPhase, useSlidingIndicator } from './lib/motion';
+import { EXIT_MS, usePresence } from './lib/presence';
 import { download, go, useRoute } from './lib/utils';
 import { Calendar } from './views/Calendar';
 import './styles/shell.css';
@@ -60,6 +61,7 @@ export function App({ email }: { email: string | null }) {
   const store = useStore();
   const { db, ready, loadError, saving, saveError, backendKind, toasts, importDB, reload } = store;
   const [palette, setPalette] = useState(false);
+  const paletteShown = usePresence(palette, EXIT_MS.palette); // sortie animée de la recherche
   const fileRef = useRef<HTMLInputElement>(null);
   const sideNav = useRef<HTMLElement>(null);
   const tabNav = useRef<HTMLElement>(null);
@@ -80,7 +82,7 @@ export function App({ email }: { email: string | null }) {
     const k = (e: KeyboardEvent) => {
       const typing = /INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement).tagName);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(p => !p); return; }
-      if (typing || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.backdrop')) return;
+      if (typing || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.backdrop:not(.leaving)')) return;
       const run = ({ n: create.task, e: create.event, s: create.subject } as Record<string, () => void>)[e.key.toLowerCase()];
       if (run) { e.preventDefault(); run(); }
     };
@@ -203,7 +205,7 @@ export function App({ email }: { email: string | null }) {
         ))}
       </nav>
 
-      {palette && <Palette onClose={() => setPalette(false)} pages={PAGES} />}
+      {paletteShown.mounted && <Palette onClose={() => setPalette(false)} pages={PAGES} closing={paletteShown.closing} />}
 
       {/* Chunk séparé, demandé dès le premier rendu (en parallèle) : le bouton apparaît aussitôt chargé. */}
       <Suspense fallback={null}><AIChat /></Suspense>

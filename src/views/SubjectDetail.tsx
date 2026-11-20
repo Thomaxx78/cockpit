@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRightLeft, CalendarCheck2, CalendarPlus, Check, CheckCircle2, Plus, RotateCcw, Sparkles, Trash2 } from 'lucide-react';
 import { ColorPicker, useEditors } from '../components/editors';
 import { TaskRow } from '../components/TaskRow';
 import { AutoTextarea, Empty } from '../components/ui';
 import { newId, useStore } from '../lib/store';
 import { isPastMeeting, SUBJECT_STATUSES, type Activity, type CalEvent, type Subject } from '../lib/types';
+import { prefersReducedMotion } from '../lib/motion';
 import { dayMonth, fmtShort, go, iso, relative, statusClass, timeRange, todayIso } from '../lib/utils';
 import '../styles/history.css';
+import '../styles/motion-pages.css';
 
 type HistoryEntry = { key: string; sort: string; day: string; icon: ReactNode; tone?: 'done' | 'deleted'; prefix: string; text: string; eventId?: string };
 
@@ -76,11 +78,39 @@ export function SubjectDetail({ id }: { id: string }) {
   const [showColors, setShowColors] = useState(false);
   const [opened, setOpened] = useState<(keyof Subject)[]>([]);
   const [allHistory, setAllHistory] = useState(false);
+  const tasks = db.tasks.filter(t => t.subject_id === id).sort((a, b) => Number(a.status === 'Terminé') - Number(b.status === 'Terminé') || a.position - b.position);
+
+  /* Arrivée des actions : en cascade à l'ouverture de la page, puis une à une quand on en
+     ajoute. Lancée en JS (WAAPI) et seulement pour un id jamais vu : une ligne déplacée
+     (action terminée qui descend) ou une mise à jour du store ne rejoue rien, alors qu'une
+     animation CSS repartirait à chaque déplacement dans le DOM. */
+  const actionsRef = useRef<HTMLElement>(null);
+  const seenTasks = useRef<Set<string> | null>(null);
+  const openedAt = useRef(performance.now());
+  const taskIds = tasks.map(t => t.id).join();
+  useLayoutEffect(() => {
+    const panel = actionsRef.current;
+    if (!panel) return;
+    const rows = panel.querySelectorAll<HTMLElement>(':scope > .task-row');
+    const seen = seenTasks.current ?? new Set<string>();
+    const entering = performance.now() - openedAt.current < 700;
+    const still = prefersReducedMotion();
+    let n = 0;
+    tasks.forEach((t, i) => {
+      if (seen.has(t.id) || still || !rows[i]) return;
+      rows[i].animate(
+        [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }],
+        entering
+          ? { duration: 380, delay: 190 + Math.min(n++, 8) * 35, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'backwards' }
+          : { duration: 300, easing: 'cubic-bezier(.16,1,.3,1)' },
+      );
+    });
+    seenTasks.current = new Set(tasks.map(t => t.id));
+  }, [taskIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!s) return <div className="page"><Empty>Ce sujet n'existe plus. <button className="link" onClick={() => go('')}>Retour au calendrier</button></Empty></div>;
 
   const set = (p: Partial<Subject>) => latest.current && saveSubject({ ...latest.current, ...p });
-  const tasks = db.tasks.filter(t => t.subject_id === id).sort((a, b) => Number(a.status === 'Terminé') - Number(b.status === 'Terminé') || a.position - b.position);
   const events = db.events.filter(e => e.subject_id === id).sort((a, b) => (a.date + (a.start_time ?? '')).localeCompare(b.date + (b.start_time ?? '')));
   const done = tasks.filter(t => t.status === 'Terminé').length;
   const history = subjectHistory(id, activity, db.events);
@@ -103,7 +133,7 @@ export function SubjectDetail({ id }: { id: string }) {
   const shown = (k: keyof Subject) => !!String(s[k] ?? '').trim() || opened.includes(k);
 
   return (
-    <div className="page" style={{ ['--c' as string]: s.color }}>
+    <div className="page subject-page" style={{ ['--c' as string]: s.color }}>
       <button className="btn ghost back" onClick={() => (window.history.length > 1 ? window.history.back() : go(''))}><ArrowLeft size={16} /> Retour</button>
 
       <section className="hero">
@@ -133,7 +163,7 @@ export function SubjectDetail({ id }: { id: string }) {
 
       <div className="grid-2 detail">
         <div className="col">
-          <section className="panel">
+          <section className="panel" ref={actionsRef}>
             <div className="panel-head"><h3>Actions</h3><span className="count">{tasks.length}</span></div>
             {tasks.map(t => <TaskRow key={t.id} t={t} showSubject={false} />)}
             <div className="quick-add">

@@ -1,0 +1,29 @@
+/* ---------- Kanban : mouvement ----------
+   À l'ouverture : filtres, puis colonnes de gauche à droite, puis les cartes de chaque
+   colonne une à une (--c : rang de la colonne, --i : rang de la carte, plafonné à 7).
+   Tout est posé en ~0,8 s. On anime la carte (.kcard) et jamais son conteneur triable :
+   dnd-kit pilote la transformation de celui-ci pendant le glisser-déposer.
+   Ensuite, une carte qui apparaît (ajout, filtre, synchro) arrive en simple fondu, et
+   celle qu'on vient de déposer s'entoure d'un halo bref. */
+
+.kanban-page .filters { animation: rise-in .42s var(--ease-out) 50ms backwards; }
+.kanban-page .kcol-tabs { animation: rise-in .42s var(--ease-out) 80ms backwards; }
+.kanban-page .kcol { animation: rise-in .45s var(--ease-out) backwards; animation-delay: calc(90ms + var(--c, 0) * 45ms); }
+
+@keyframes kcard-rise { from { opacity: 0; transform: translateY(6px); } }
+.kcard.k-cascade { animation: kcard-rise .36s var(--ease-out) backwards; animation-delay: calc(140ms + var(--c, 0) * 45ms + var(--i, 0) * 26ms); }
+/* « Ajouter » se montre une fois les cartes de sa colonne arrivées. */
+.kanban-page .kadd { animation: fade .3s ease backwards; animation-delay: calc(300ms + var(--c, 0) * 45ms); }
+
+@keyframes kcard-appear { from { opacity: 0; transform: scale(.98); } }
+.kcard.k-appear { animation: kcard-appear .26s var(--ease-out) backwards; }
+
+/* Halo de dépôt : sur un pseudo-élément, pour ne pas remplacer l'animation d'entrée de la carte. */
+@keyframes kcard-landed {
+  from { box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-fill) 45%, transparent); }
+  to { box-shadow: 0 0 0 6px transparent; }
+}
+.kcard.landed::after {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  animation: kcard-landed .7s var(--ease-out) .15s backwards;
+}

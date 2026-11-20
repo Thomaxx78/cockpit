@@ -847,7 +847,7 @@ textarea { resize: vertical; }
 .ai-fab { transition: transform .25s var(--ease), box-shadow .2s, opacity .2s; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; /* sans délai : sinon les éléments en cascade restent invisibles le temps de leur tour */ animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 
 /* ============================================================

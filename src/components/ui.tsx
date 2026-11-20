@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode, type TextareaHTMLAt
 import { X } from 'lucide-react';
 import { statusClass } from '../lib/utils';
 import { useStore } from '../lib/store';
+import { useInert } from '../lib/presence';
+import '../styles/motion-overlays.css';
 
 export const Pill = ({ status }: { status: string }) => <span className={`pill ${statusClass(status)}`}>{status}</span>;
 
@@ -46,16 +48,20 @@ export function SubjectFilter({ value, onChange }: { value: string; onChange: (v
   );
 }
 
-export function Modal({ title, onClose, children, footer, accent }: {
-  title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; accent?: string;
+/** Fenêtre. `closing` : sortie en cours (usePresence) — inerte, Échap et clic sur le voile ignorés. */
+export function Modal({ title, onClose, children, footer, accent, closing = false }: {
+  title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; accent?: string; closing?: boolean;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useInert(ref, closing);
   useEffect(() => {
+    if (closing) return;
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
-  }, [onClose]);
+  }, [onClose, closing]);
   return (
-    <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+    <div ref={ref} className={`backdrop${closing ? ' leaving' : ''}`} onMouseDown={e => !closing && e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" style={accent ? { ['--c' as string]: accent } : undefined}>
         <header className="modal-head">
           <h2>{title}</h2>

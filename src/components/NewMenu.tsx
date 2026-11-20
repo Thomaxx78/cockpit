@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarPlus, ChevronDown, FolderPlus, ListPlus, Plus } from 'lucide-react';
 import { todayIso } from '../lib/utils';
 import { useEditors } from './editors';
+import { EXIT_MS, useInert, usePresence } from '../lib/presence';
 
 /** Bouton « + Nouveau » : action, événement ou sujet. Le sujet ouvert est pré-rempli. */
 export function useCreate(subjectId?: string) {
@@ -18,6 +19,9 @@ export function NewMenu({ subjectId }: { subjectId?: string }) {
   const create = useCreate(subjectId);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { mounted, closing } = usePresence(open, EXIT_MS.menu);
+  useInert(menuRef, closing);
 
   useEffect(() => {
     if (!open) return;
@@ -39,8 +43,8 @@ export function NewMenu({ subjectId }: { subjectId?: string }) {
       <button className="btn primary" onClick={() => setOpen(o => !o)} aria-expanded={open}>
         <Plus size={16} /> <span className="hide-sm">Nouveau</span> <ChevronDown size={14} className={`chev ${open ? 'up' : ''}`} />
       </button>
-      {open && (
-        <div className="menu">
+      {mounted && (
+        <div ref={menuRef} className={`menu${closing ? ' leaving' : ''}`}>
           {items.map(({ icon: Icon, label, hint, key, run }) => (
             <button key={label} onClick={() => { setOpen(false); run(); }}>
               <span className="menu-ico"><Icon size={17} /></span>

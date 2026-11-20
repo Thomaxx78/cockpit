@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type DragEvent } from 'react';
 import { CalendarPlus, Check, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Plus } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { NextMeeting } from '../components/NextMeeting';
@@ -6,6 +6,7 @@ import { Empty } from '../components/ui';
 import { useStore } from '../lib/store';
 import { isActive, type Task } from '../lib/types';
 import { dayMonth, iso, MOBILE, timeRange, todayIso, useMedia } from '../lib/utils';
+import '../styles/motion-calendar.css';
 
 type Item = {
   key: string; date: string; time: string; sort: string; name: string; color?: string; subject?: string;
@@ -100,10 +101,10 @@ function Tray({ tasks, onDropBack, dragging }: { tasks: Task[]; onDropBack: (id:
       </button>
       {open && (
         <div className="cal-tray-list">
-          {tasks.map(t => (
+          {tasks.map((t, i) => (
             <button
               key={t.id} className="cal-chip" draggable onDragStart={dragTask(t.id)} onClick={() => editTask(t)}
-              style={{ ['--c' as string]: subject(t.subject_id)?.color }} title={`${t.name} — glisser sur un jour`}
+              style={{ ['--c' as string]: subject(t.subject_id)?.color, ['--i' as string]: Math.min(i, 10) }} title={`${t.name} — glisser sur un jour`}
             >
               <GripVertical size={12} className="grip" /><i className="evt-dot" /><span>{t.name}</span>
             </button>
@@ -146,12 +147,12 @@ function DayView({ day, items, today }: { day: string; items: Item[]; today: str
         <div className="dv-grid" style={{ height: hours.length * 44 - 44 }}>
           {hours.map(h => <div key={h} className="dv-hour" style={{ top: `${pct(h * 60)}%` }}><span>{h}h</span></div>)}
           <div className="dv-track">
-            {place(timed, from, to, (30 / (to - from)) * 100).map(b => (
+            {place(timed, from, to, (30 / (to - from)) * 100).map((b, i) => (
               <button
                 key={b.it.key}
                 // Moins de 50 min : heure et nom sur une ligne ; moins de 1h30 : pas de sujet.
                 className={`dv-block ${b.it.end! - b.it.start! < 50 ? 'short' : b.it.end! - b.it.start! < 90 ? 'compact' : ''}`}
-                style={blockStyle(b, '4px')}
+                style={{ ...blockStyle(b, '4px'), ['--i' as string]: Math.min(i, 8) }}
                 onClick={b.it.open}
                 title={`${b.it.time} · ${b.it.name}`}
               >
@@ -185,6 +186,16 @@ export function Calendar() {
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [showTasks, setShowTasks] = useState(true);
   const today = todayIso();
+  // Mouvement de la page (styles/motion-calendar.css) : « arrive » à l'ouverture, « next »/« prev »
+  // quand on change de mois. Retiré après 1 s : seuls les éléments montés pendant ce court
+  // instant s'animent ; une synchro des données ou un ticket déposé ne rejouent rien.
+  // Un nouvel objet à chaque fois : deux clics « suivant » d'affilée relancent bien le minuteur.
+  const [motion, setMotion] = useState<{ kind: 'arrive' | 'next' | 'prev' } | null>({ kind: 'arrive' });
+  useEffect(() => {
+    if (!motion) return;
+    const id = setTimeout(() => setMotion(null), 1000);
+    return () => clearTimeout(id);
+  }, [motion]);
   // Sur téléphone, un jour est toujours sélectionné (vue de la journée sous la grille).
   // Sur ordinateur, la vue de la journée s'ouvre en cliquant le numéro du jour ou « +N ».
   const [selected, setSelected] = useState<string | null>(() => (mobile ? today : null));
@@ -214,8 +225,14 @@ export function Calendar() {
   const monthPrefix = iso(month).slice(0, 7);
   const sel = selected && selected.startsWith(monthPrefix) ? selected : null;
   const agenda = items.filter(it => it.date.startsWith(monthPrefix)).sort((a, b) => (a.date + a.sort).localeCompare(b.date + b.sort));
-  const shift = (n: number) => { setMonth(new Date(y, m + n, 1)); setSelected(null); };
-  const goToday = () => { const d = new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); setSelected(mobile ? today : null); };
+  const shift = (n: number) => { setMonth(new Date(y, m + n, 1)); setSelected(null); setMotion({ kind: n > 0 ? 'next' : 'prev' }); };
+  const goToday = () => {
+    const d = new Date();
+    const target = new Date(d.getFullYear(), d.getMonth(), 1);
+    if (target.getTime() !== month.getTime()) setMotion({ kind: target > month ? 'next' : 'prev' });
+    setMonth(target);
+    setSelected(mobile ? today : null);
+  };
   const MAX_TOP = 2;
   const pickDay = (key: string) => (mobile ? setSelected(key) : editEvent(null, { date: key }));
   const openDay = (key: string) => setSelected(s => (s === key && !mobile ? null : key));
@@ -229,10 +246,11 @@ export function Calendar() {
   const cellPct = (min: number) => ((min - CELL_START) / (CELL_END - CELL_START)) * 100;
 
   return (
-    <div className="page">
+    // Un glisser coupe l'arrivée : rien ne bouge sous le ticket ni sous les cases où on le dépose.
+    <div className={`page cal-page${motion ? ` is-${motion.kind}` : ''}`} onDragStartCapture={() => setMotion(null)}>
       <div className="page-head cal-head">
         <div>
-          <h2 className="month-title">{month.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h2>
+          <h2 key={monthPrefix} className="month-title">{month.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h2>
         </div>
         <div className="cal-nav">
           <div className="cal-arrows">
@@ -250,10 +268,12 @@ export function Calendar() {
       {!mobile && <Tray tasks={unplanned} onDropBack={id => setDue(id, null)} dragging={dragging} />}
 
       <div
+        // Clé du mois : la grille est remontée à chaque changement de mois, ses cases arrivent du bon côté.
+        key={monthPrefix}
         className="calendar" role="group"
         onDragStart={() => setDragging(true)} onDragEnd={() => { setDragging(false); setOverDay(null); }} aria-label={`Calendrier ${month.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`}>
         {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="dow" aria-hidden="true">{d}</div>)}
-        {cells.map(d => {
+        {cells.map((d, i) => {
           const key = iso(d);
           const list = byDay.get(key) ?? [];
           const timed = list.filter(it => it.start !== null);
@@ -263,6 +283,8 @@ export function Calendar() {
               key={key}
               role="button"
               tabIndex={0}
+              // Rang sur la diagonale (ligne + colonne) : la grille se remplit en vague depuis le coin haut gauche.
+              style={{ '--k': Math.floor(i / 7) + (i % 7) } as CSSProperties}
               aria-pressed={mobile ? sel === key : undefined}
               aria-label={`${longDay(key)}${list.length ? `, ${list.length} élément${list.length > 1 ? 's' : ''}` : ''}${mobile ? '' : ', ajouter un événement'}`}
               className={`day ${d.getMonth() !== m ? 'other' : ''} ${key === today ? 'today' : ''} ${d.getDay() % 6 === 0 ? 'weekend' : ''} ${sel === key ? 'selected' : ''} ${overDay === key ? 'drop-over' : ''}`}
@@ -334,16 +356,17 @@ export function Calendar() {
 
       <section id="day-panel" className={`panel agenda ${sel ? 'show' : ''}`} aria-live="polite">
         <div className="panel-head">
-          <h3>{sel ? <span className="cap">{longDay(sel)}</span> : 'Agenda du mois'}</h3>
+          {/* Clés : titre et contenu se remplacent en fondu quand on change de jour. */}
+          <h3 key={sel ?? 'month'}>{sel ? <span className="cap">{longDay(sel)}</span> : 'Agenda du mois'}</h3>
           {sel
             ? <button className="link" onClick={() => setSelected(null)}>{mobile ? 'Tout le mois' : 'Fermer'}</button>
             : <span className="count">{agenda.length}</span>}
         </div>
-        {sel ? <DayView day={sel} items={byDay.get(sel) ?? []} today={today} />
-          : agenda.length ? agenda.map(it => {
+        {sel ? <DayView key={sel} day={sel} items={byDay.get(sel) ?? []} today={today} />
+          : agenda.length ? agenda.map((it, i) => {
             const d = dayMonth(it.date);
             return (
-              <button key={it.key} className="date-row" style={{ ['--c' as string]: it.color }} onClick={it.open}>
+              <button key={it.key} className="date-row" style={{ ['--c' as string]: it.color, ['--i' as string]: Math.min(i, 8) }} onClick={it.open}>
                 <span className="datebox"><b>{d.day}</b><small>{d.weekday}</small></span>
                 <span className="subject-row-main">
                   <span className="row-title">{it.name}</span>

@@ -1,0 +1,68 @@
+/* ---------- Notes : mouvement ----------
+   Arrivée : panneau → en-tête et « Coller » → épinglées/récentes → arborescence en cascade
+   → document. Ouvrir une autre note : seul le document fait un court fondu (clé = id de la note).
+   Tout ne joue qu'au montage. `.notes.arrive` (retirée après la cascade) ne change que les
+   retards, jamais le nom de l'animation : rien ne rejoue ensuite (mises à jour du store,
+   synchro, enregistrement auto, frappe). */
+
+/* ----- Arborescence ----- */
+.nt-side { animation: rise-in .45s var(--ease-out) backwards; }
+.nt-side-head, .nt-paste, .nt-quick-title, .nt-quick-row, .nt-row, .nt-empty-tree {
+  /* Hors arrivée : un élément ajouté (note, dossier, épingle) monte simplement, sans retard. */
+  animation: rise-in .32s var(--ease-out) backwards;
+}
+.notes.arrive .nt-side-head { animation-delay: 40ms; }
+.notes.arrive .nt-paste { animation-delay: 80ms; }
+/* Épinglées puis récentes : départ selon leur place dans le panneau, lignes à 25 ms d'écart. */
+.nt-side > :nth-child(3) { --at: 120ms; }
+.nt-side > :nth-child(4) { --at: 190ms; }
+.nt-quick > :nth-child(1) { --r: 0; } .nt-quick > :nth-child(2) { --r: 1; } .nt-quick > :nth-child(3) { --r: 2; }
+.nt-quick > :nth-child(4) { --r: 3; } .nt-quick > :nth-child(5) { --r: 4; }
+.notes.arrive .nt-quick-title, .notes.arrive .nt-quick-row { animation-delay: calc(var(--at, 120ms) + var(--r, 5) * 25ms); }
+/* Dossiers : rang dans la racine (--n, hérité par tout le sous-arbre) + profondeur (--d, déjà
+   posée sur chaque ligne). Au-delà du 12e élément, tout arrive ensemble. */
+.nt-tree > :nth-child(1) { --n: 0; }  .nt-tree > :nth-child(2) { --n: 1; }  .nt-tree > :nth-child(3) { --n: 2; }
+.nt-tree > :nth-child(4) { --n: 3; }  .nt-tree > :nth-child(5) { --n: 4; }  .nt-tree > :nth-child(6) { --n: 5; }
+.nt-tree > :nth-child(7) { --n: 6; }  .nt-tree > :nth-child(8) { --n: 7; }  .nt-tree > :nth-child(9) { --n: 8; }
+.nt-tree > :nth-child(10) { --n: 9; } .nt-tree > :nth-child(11) { --n: 10; } .nt-tree > :nth-child(12) { --n: 11; }
+.notes.arrive .nt-row, .notes.arrive .nt-empty-tree { animation-delay: calc(200ms + var(--n, 12) * 28ms + min(var(--d, 0), 4) * 22ms); }
+
+/* Sélection : le surlignage passe d'une ligne à l'autre en fondu. */
+.nt-row, .nt-quick-row { transition: background-color .2s ease; }
+.nt-row .nt-name { transition: color .2s ease; }
+
+/* Dossier qui se déplie / se replie : hauteur via grid 0fr → 1fr (pas de mesure en JS). */
+.nt-group {
+  display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden;
+  transition: grid-template-rows .26s var(--ease-out), opacity .16s ease, visibility 0s linear .26s;
+}
+.nt-group.open {
+  grid-template-rows: 1fr; opacity: 1; visibility: visible;
+  transition: grid-template-rows .3s var(--ease-out), opacity .24s ease .04s, visibility 0s;
+}
+/* `clip` + marge : le contour de focus des lignes n'est pas rogné. */
+.nt-group > * { min-height: 0; overflow: hidden; }
+@supports (overflow-clip-margin: 4px) { .nt-group > * { overflow: clip; overflow-clip-margin: 4px; } }
+
+/* ----- Document ----- */
+/* Première arrivée : monte juste après l'arborescence. */
+.nt-doc.nt-arrive { animation: rise-in .45s var(--ease-out) .14s backwards; }
+/* Autre note : fondu court, sans écran vide (part d'une opacité partielle). */
+.nt-doc.nt-swap { animation: nt-swap .28s var(--ease-out) backwards; }
+@keyframes nt-swap { from { opacity: .35; transform: translateY(5px); } }
+/* Corps (lecture, éditeur visuel ou Markdown) : fondu quand on passe de l'un à l'autre.
+   Il ne remonte qu'au changement de mode, jamais pendant la frappe ni à l'enregistrement. */
+.nt-paper-main > :nth-child(n+3) { animation: fade .25s ease backwards; }
+.nt-toc { animation: fade .4s ease .12s backwards; }
+
+/* Accueil (aucune note ouverte) : ses éléments arrivent l'un après l'autre. */
+.nt-welcome > * { animation: rise-in .42s var(--ease-out) backwards; animation-delay: calc(var(--at, 60ms) + var(--w, 0) * 45ms); }
+.nt-welcome.nt-arrive > * { --at: 220ms; }
+.nt-welcome > :nth-child(2) { --w: 1; } .nt-welcome > :nth-child(3) { --w: 2; }
+.nt-welcome > :nth-child(4) { --w: 3; } .nt-welcome > :nth-child(5) { --w: 4; }
+
+/* Réduire les animations : la règle globale raccourcit les durées ; on retire aussi les retards
+   (avec `backwards`, un élément resterait invisible pendant son retard). */
+@media (prefers-reduced-motion: reduce) {
+  .nt-side, .nt-side *, .nt-doc, .nt-doc > *, .nt-welcome > *, .nt-paper-main > *, .nt-toc, .nt-group { animation-delay: 0s !important; transition-delay: 0s !important; }
+}

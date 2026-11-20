@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { ArrowRightLeft, CalendarCheck2, CheckCircle2, ChevronLeft, ChevronRight, ListPlus } from 'lucide-react';
 import { useEditors } from '../components/editors';
 import { Dot, Empty, Pill } from '../components/ui';
@@ -6,6 +6,7 @@ import { useStore } from '../lib/store';
 import { isPastMeeting, type Activity } from '../lib/types';
 import { iso, timeRange, todayIso } from '../lib/utils';
 import '../styles/history.css';
+import '../styles/motion-pages.css';
 
 /** Jour local (AAAA-MM-JJ) d'un horodatage. */
 const dayOf = (at: string) => iso(new Date(at));
@@ -91,8 +92,10 @@ export function History() {
         </div>
       </div>
 
+      {/* Clé = semaine : changer de semaine rejoue l'arrivée en cascade, pas les mises à jour en direct. */}
+      <Fragment key={mon}>
       {sections.length > 0 && (
-        <div className="stats hist-stats">
+        <div className="stats hist-stats stagger">
           {stats.map(s => (
             <div key={s.label} className="stat">
               <span className="stat-ico">{s.icon}</span>
@@ -135,8 +138,9 @@ export function History() {
           ))}
         </div>
       ) : (
-        <section className="panel"><Empty>Rien d'enregistré cette semaine.</Empty></section>
+        <section className="panel hist-empty"><Empty>Rien d'enregistré cette semaine.</Empty></section>
       )}
+      </Fragment>
 
       {activity.length === 0 && (
         <p className="hint hist-note">L'historique démarre à partir de maintenant : les changements sont enregistrés au fil de l'eau.</p>
